@@ -53,7 +53,7 @@ public:
 
 void run(const std::vector<std::string>& args) {
 	InitGLFW glfw;
-	Window mainWindow("I LOVE TAHSIN", 640, 480);
+	Window mainWindow("Fluid Simulator", 640, 480);
 	glfwMakeContextCurrent(mainWindow);
 
 	InitGLEW glew;
