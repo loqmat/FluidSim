@@ -1,5 +1,5 @@
 #include <iostream>
-#include "graphics.hpp"
+#include "fluid/graphics.hpp"
 
 namespace Fluids {
 

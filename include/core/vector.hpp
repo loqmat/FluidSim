@@ -4,6 +4,11 @@
 #include <cmath>
 #include <iostream>
 
+#include "base/types.hpp"
+#include "core/core_defs.hpp"
+
+namespace core {
+
 #define TEMPLATE_NAME 	T1
 #define TEMPLATE_NAME2 	T2
 
@@ -303,7 +308,7 @@
 	: CTOR##n##_COPY_ASSIGN(a,b,c,d) { ; } \
 	vec##n##_t(std::initializer_list<TEMPLATE_NAME> args) { \
 		if ( args.end() - args.begin() != n ) { \
-			throw "invalid number of elements in vector ctor"; \
+			throw "invalid number of elements"; \
 		} CTOR##n##_LIST_ASSIGN( args, a,b,c,d ) \
 	} \
 	template<typename TEMPLATE_NAME2> vec##n##_t( const VECN2(n)& copy ) \
@@ -315,7 +320,7 @@
 #define VECTOR_MATH(n) \
 		TEMP1 TEMPLATE_NAME Distance( const VECN(n)& a, const VECN(n)& b )\
 			{ return Length(b-a); }\
-		TEMP1 float Angle(const VECN(n)& a,const VECN(n)& b)\
+		TEMP1 float32 Angle(const VECN(n)& a,const VECN(n)& b)\
 			{ return acos( ( Dot(a,b) ) / ( Length(a) * Length(b) ) ); }\
 		TEMP1 VECN(n) Normalize( const VECN(n)& a )\
 			{ return a / Length(a); }\
@@ -333,14 +338,14 @@
 			{ COMPONENT ## n ## IP( a, b, /= ); return a; }
 
 #define VECTOR_ABBR(n) \
-		typedef vec##n##_t<float> 			vec##n;\
-		typedef vec##n##_t<float> 			vec##n##f;\
-		typedef vec##n##_t<double> 			vec##n##d;\
-		typedef vec##n##_t<int> 			vec##n##i;\
-		typedef vec##n##_t<unsigned int> 	vec##n##ui;\
-		typedef vec##n##_t<char> 			vec##n##c;\
-		typedef vec##n##_t<unsigned char> 	vec##n##uc;\
-		typedef vec##n##_t<bool> 			vec##n##b;
+		typedef vec##n##_t<float32> vec##n;\
+		typedef vec##n##_t<float32> vec##n##f;\
+		typedef vec##n##_t<float64> vec##n##d;\
+		typedef vec##n##_t<int32> 	vec##n##i;\
+		typedef vec##n##_t<uint32> 	vec##n##ui;\
+		typedef vec##n##_t<int8> 	vec##n##c;\
+		typedef vec##n##_t<uint8> 	vec##n##uc;\
+		typedef vec##n##_t<bool> 	vec##n##b;
 
 TEMP1 struct  vec4_t;
 TEMP1 struct  vec3_t;
@@ -434,6 +439,8 @@ template<typename T>
 std::ostream& operator<< (std::ostream& ostr, const vec4_t<T>& vec ) {
 	ostr << "(" << vec.x << ", " << vec.y << ", " << vec.z << ", " << vec.w << ")";
 	return ostr;
+}
+
 }
 
 #endif//__VECTOR_BASE_H__

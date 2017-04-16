@@ -1,4 +1,4 @@
-#include "setup.hpp"
+#include "fluid/setup.hpp"
 
 namespace Fluids {
 

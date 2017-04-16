@@ -6,6 +6,8 @@
 #include "gl/glew.h"
 #include "glfw/glfw3.h"
 
+#define deg2rad 0.01745329251994329576923690768489f
+
 namespace Fluids {
 
 	typedef unsigned int uint;
