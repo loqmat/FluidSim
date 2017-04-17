@@ -42,8 +42,8 @@ namespace Fluids {
 		checkCUDAReturn( cudaDeviceSynchronize() );
 	}	
 
-	void UniformBuffer::bindGL(GLuint id) {
-		glBindBufferBase(GL_UNIFORM_BUFFER, id, _gl_buffer);
+	void UniformBuffer::bindGL(GLuint id, std::size_t offset, std::size_t range) {
+		glBindBufferRange(GL_UNIFORM_BUFFER, id, _gl_buffer, offset, range);
 	}
 	void UniformBuffer::unbindGL(GLuint id) {
 		glBindBufferBase(GL_UNIFORM_BUFFER, id, 0);

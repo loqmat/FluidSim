@@ -8,7 +8,7 @@
 #include "gl/glew.h"
 #include "glfw/glfw3.h"
 
-#include "cuda_err.hpp"
+#include "cuda_setup.hpp"
 #include "cuda_gl_interop.h"
 
 namespace Fluids {
@@ -29,8 +29,8 @@ namespace Fluids {
 		void* bindCUDA();
 		void unbindCUDA();
 
-		void bindGL(GLuint);
-		void unbindGL(GLuint);
+		void bindGL(GLuint bindpt, std::size_t offset, std::size_t range);
+		void unbindGL(GLuint bindpt);
 	};
 }
 

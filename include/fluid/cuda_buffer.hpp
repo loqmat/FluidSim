@@ -4,7 +4,7 @@
 #define __CUDA_BUFFER_HPP__
 
 #include "common.hpp"
-#include "cuda_err.hpp"
+#include "cuda_setup.hpp"
 
 namespace Fluids {
 	struct CUDABuffer {

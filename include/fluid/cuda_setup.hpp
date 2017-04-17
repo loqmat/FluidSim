@@ -7,8 +7,16 @@
 #include "device_launch_parameters.h"
 
 namespace Fluids {
-	void cudaSetup();
-	void cudaGLSetup();
+	struct CUDA {
+		cudaDeviceProp properties;
+		int driverVersion;
+		int runtimeVersion;
+		unsigned int deviceCount;
+		int devices[8];
+
+		void Setup();
+		void GLSetup();
+	};
 	void checkCUDAReturn(cudaError err);
 	void checkCUDAResult();
 }
