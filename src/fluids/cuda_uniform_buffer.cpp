@@ -22,11 +22,8 @@ namespace Fluids {
 	std::size_t UniformBuffer::byteSize() const {
 		return _byte_size;
 	}
-
-	void UniformBuffer::subData(float* data, std::size_t offset, std::size_t size) {
-		glBindBuffer(GL_UNIFORM_BUFFER, _gl_buffer);
-		glBufferSubData(GL_UNIFORM_BUFFER, 0, size, data);
-		glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	GLuint UniformBuffer::handleGL() const {
+		return _gl_buffer;
 	}
 
 	void* UniformBuffer::bindCUDA() {

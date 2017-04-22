@@ -19,6 +19,7 @@ namespace Fluids {
 	};
 	void checkCUDAReturn(cudaError err);
 	void checkCUDAResult();
+	void checkGLResult();
 }
 
 #endif//__CUDA_ERROR_HANDLING_HPP__

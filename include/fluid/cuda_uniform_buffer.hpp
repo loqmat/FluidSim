@@ -24,7 +24,7 @@ namespace Fluids {
 		~UniformBuffer();
 
 		std::size_t byteSize() const;
-		void subData(float* data, std::size_t offset, std::size_t size);
+		GLuint handleGL() const;
 
 		void* bindCUDA();
 		void unbindCUDA();

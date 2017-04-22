@@ -6,4 +6,6 @@
 #include <cstdlib>
 #include <algorithm>
 
+typedef unsigned char byte;
+
 #endif//__FLUID_COMMON_HPP__

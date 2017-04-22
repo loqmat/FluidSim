@@ -40,5 +40,28 @@ namespace Fluids {
 	void checkCUDAResult() {
 		checkCUDAReturn(cudaGetLastError());
 	}
+	void checkGLResult() {
+		GLuint err;
+		if ( (err = glGetError()) != GL_NO_ERROR ) {
+			switch( err ) {
+				case GL_INVALID_ENUM:
+					throw "OpenGL: Invalid Enum";
+				case GL_INVALID_VALUE:
+					throw "OpenGL: Invalid Value";
+				case GL_INVALID_OPERATION:
+					throw "OpenGL: Invalid Operation";
+				case GL_INVALID_FRAMEBUFFER_OPERATION:
+					throw "OpenGL: Invalid Framebuffer Operation";
+				case GL_OUT_OF_MEMORY:
+					throw "OpenGL: Out of Memory";
+				case GL_STACK_UNDERFLOW:
+					throw "OpenGL: Stack Underflow";
+				case GL_STACK_OVERFLOW:
+					throw "OpenGL: Stack Overflow";
+				default:
+					throw "OpenGL: Unknown Error";
+			}
+		}
+	}
 
 }

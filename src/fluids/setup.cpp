@@ -17,6 +17,10 @@ namespace Fluids {
 			throw "Cannot initialize GLEW!";
 		}
 	}
+	void InitGLEW::initialize() const {
+		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+	}
 
 	Window::Window(const char* name, int x, int y) : _window(glfwCreateWindow(x, y, name, NULL, NULL)) {
 		if (!_window) {

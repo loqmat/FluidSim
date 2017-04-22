@@ -23,6 +23,7 @@ namespace Fluids {
 	struct InitGLEW {
 		public:
 			InitGLEW();
+			void initialize() const;
 	};
 
 	struct Window {
