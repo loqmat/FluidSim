@@ -16,10 +16,4 @@ typedef long long int 			int64;
 typedef float					float32;
 typedef double					float64;
 
-class Function {
-public:
-	template<typename T> using get = T (*)();
-	template<typename T> using set = void (*)( T );
-};
-
 #endif//__TYPES_H__

@@ -17,8 +17,8 @@ namespace Fluids {
 
 		std::size_t byteSize() const;
 
-		void CUDABuffer::upload(const void* data);
-		void CUDABuffer::download(void* data) const;
+		void upload(const void* data);
+		void download(void* data) const;
 
 		template<typename T>
 		operator T*() {

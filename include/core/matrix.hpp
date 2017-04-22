@@ -48,16 +48,6 @@ struct matrix
 	}
 
 	matrix( void ) { }
-	matrix( std::initializer_list< std::initializer_list<float32> > x ) {
-		uint32 i = 0, j = 0;
-		for ( const auto& l : x ) {
-			for ( const auto& v : l ) {
-				data[j*row+i] = v;
-				++ j;
-			}
-			++ i;
-		}
-	}
 
 	bool operator==( const matrix<row,col>& mat ) const {
 		for (uint32 i=0;i<row*col;i++)
