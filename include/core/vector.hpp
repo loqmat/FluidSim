@@ -306,11 +306,6 @@ namespace core {
 	vec##n##_t( CTOR##n##_BASE_ARGS ) : CTOR##n##_BASE_ASSIGN(a,b,c,d) { ; } \
 	vec##n##_t(const VECN(n)& copy ) \
 	: CTOR##n##_COPY_ASSIGN(a,b,c,d) { ; } \
-	vec##n##_t(std::initializer_list<TEMPLATE_NAME> args) { \
-		if ( args.end() - args.begin() != n ) { \
-			throw "invalid number of elements"; \
-		} CTOR##n##_LIST_ASSIGN( args, a,b,c,d ) \
-	} \
 	template<typename TEMPLATE_NAME2> vec##n##_t( const VECN2(n)& copy ) \
 	: CTOR##n##_COPY_ASSIGN(a,b,c,d) { } \
 	template<typename TEMPLATE_NAME2> vec##n##_t<TEMPLATE_NAME>& \

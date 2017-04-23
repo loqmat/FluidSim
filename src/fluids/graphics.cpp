@@ -58,7 +58,7 @@ namespace Fluids {
 		uint vshader = 0, fshader = 0;
 
 		vshader = glCreateShader(GL_VERTEX_SHADER);
-		glShaderSource(vshader, 1, &vertex, nullptr);
+		glShaderSource(vshader, 1, &vertex, NULL);
 		glCompileShader(vshader);
 
 		__check_shader(vshader);
@@ -66,7 +66,7 @@ namespace Fluids {
 		glAttachShader(_program, vshader);
 
 		fshader = glCreateShader(GL_FRAGMENT_SHADER);
-		glShaderSource(fshader, 1, &fragment, nullptr);
+		glShaderSource(fshader, 1, &fragment, NULL);
 		glCompileShader(fshader);
 
 		__check_shader(fshader);

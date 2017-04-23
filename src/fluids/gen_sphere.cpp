@@ -1,5 +1,6 @@
 #include "fluid/common.hpp"
 #include "fluid/gen_sphere.hpp"
+#include <cmath>
 #include <iostream>
 
 #define FACE_LEFT   0
