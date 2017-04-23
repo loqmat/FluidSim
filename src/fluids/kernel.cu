@@ -167,7 +167,7 @@ void run(const std::vector<std::string>& args) {
 
 	srand(time(NULL));
 
-	UniformBuffer matrix_data(sizeof(core::vec4) * VERTEX_COUNT);
+	UniformBuffer<core::vec4> matrix_data(sizeof(core::vec4) * VERTEX_COUNT);
 	{
 		glBindBuffer(GL_COPY_WRITE_BUFFER, matrix_data.handleGL());
 		float position_range = 64.0f;
@@ -183,7 +183,7 @@ void run(const std::vector<std::string>& args) {
 		glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
 	}
 
-	CUDABuffer gravity_data(sizeof(core::vec4) * GRAVITY_POINTS);
+	CUDABuffer<core::vec4> gravity_data(GRAVITY_POINTS);
 	{
 		float gravity_range = 128.0f;
 		float strength_range = 0.75f;
@@ -194,11 +194,11 @@ void run(const std::vector<std::string>& args) {
 			gravpts[i].z = gravity_range * ((float)rand() / RAND_MAX - 0.5f);
 			gravpts[i].w = strength_range * rand() / RAND_MAX + 0.25f;
 		}
-		gravity_data.upload((void*)gravpts);
+		gravity_data.upload(gravpts);
 		delete[] gravpts;
 	}
 
-	CUDABuffer input_data(sizeof(core::vec4) * VERTEX_COUNT);
+	CUDABuffer<core::vec4> input_data(VERTEX_COUNT);
 	{
 		float velocity_range = 16.0f;
 		core::vec4* velocity = new core::vec4[VERTEX_COUNT];
@@ -208,7 +208,7 @@ void run(const std::vector<std::string>& args) {
 			velocity[i].z = velocity_range * ((float)rand() / RAND_MAX - 0.5f);
 			velocity[i].w = 0.0f;
 		}
-		input_data.upload((void*)velocity);
+		input_data.upload(velocity);
 		delete[] velocity;
 	}
 
@@ -249,11 +249,12 @@ void run(const std::vector<std::string>& args) {
 	// CUDA Segment
 	//----------------------------------------------------------------------------------------------
 		{
+			matrix_data.bindCUDA();
 			gravity<<<VERTEX_COUNT/THREAD_COUNT,THREAD_COUNT>>>(
 				(float)_delta_time,						// frame time
 				(core::vec4*)gravity_data,				// gravity
 				(core::vec4*)input_data,				// velocity
-				(core::vec4*)matrix_data.bindCUDA());	// position
+				(core::vec4*)matrix_data);	// position
 			checkCUDAResult();
 			matrix_data.unbindCUDA();
 		}

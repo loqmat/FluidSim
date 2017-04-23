@@ -22,12 +22,12 @@ void grid::cell::removeParticle ( int p) {
 
 
 grid::grid(int length, int width, int depth): _dimensions(length,width,depth), _cells(sizeof(cell)*length*width*depth), 
-_particles(sizeof(particle)*length*width*depth), _positions(sizeof(vec3)*length*width*depth) {
+_particles(sizeof(particle)*length*width*depth), _positions(sizeof(core::vec3)*length*width*depth) {
 
 	int volume = length*width*depth;
 	cell* cells = new cell [volume];
 	particle* particles = new particle [volume];
-	vec3* positions = new vec3 [volume];
+	core::vec3* positions = new core::vec3 [volume];
 	_particle_count = 0.2*(volume);
 
 	for (int i = 0; i < length; i++) {
@@ -42,15 +42,15 @@ _particles(sizeof(particle)*length*width*depth), _positions(sizeof(vec3)*length*
 		for (int j = 0; j < width; j++) {
 			for (int k = 0; k < 0.2*depth; k++) {
 				int index = i+j*length+k*length*width;
-				positions[index] = vec3(i,j,k);
+				positions[index] = core::vec3(i,j,k);
 				particles[index].assignCell(index);
 				cells[index].addParticle(index);
 			}
 		}
 	}
 
-	_cells.upload((void*)cells);
-	_particles.upload((void*)particles);
+	_cells.upload(cells);
+	_particles.upload(particles);
 
 	glBindBuffer(GL_COPY_WRITE_BUFFER, _positions.handleGL());
 	glBufferSubData(GL_COPY_WRITE_BUFFER, 0, sizeof(core::vec3) * volume, (void*)positions);
@@ -61,81 +61,10 @@ _particles(sizeof(particle)*length*width*depth), _positions(sizeof(vec3)*length*
 	delete[] positions;
 }
 
-void grid::reassignParticle( int i ) {
-
-	particle& p = _particles[i];
-	vec3& pos = _positions[i];
-	int cindex = p.getCellIndex();
-	const vec3& start = _cells[cindex].getStart();
-	_cells[cindex].removeParticle(i);
-
-	if (pos.x < start.x) 			cindex--;
-	else if (pos.x >= start.x+1) 	cindex++;
-	if (pos.y < start.y) 			cindex-=_dimensions.x;
-	else if (pos.y >= start.y+1) 	cindex+=_dimensions.x;
-	if (pos.z < start.z) 			cindex-=_dimensions.x*_dimensions.y;
-	else if (pos.z >= start.z+1) 	cindex+=_dimensions.x*_dimensions.y;
-
-	_cells[cindex].addParticle(i);
-	p.assignCell(cindex);
-
-}
-
-
-
-float grid::WPoly6 ( float r ) {
-
-	return ( 315.0/(64.0*MATH_PI*pow(H,9)) ) * pow((H*H-r*r),3 );
-
-}
-
-vec3 grid::gradientWPoly6 ( vec3& r, float d ) {
-
-	return ( -945.0/(32.0*MATH*PI*pow(H,9)) * pow((H*H-d*d),2) * r );
-
-}
-
-float grid::laplacianWpoly6 ( float r ) {
-    
-  	return ( -945.0/(32.0*MATH_PI*pow(H,9)) * (H*H-r*r) * (3.0*H*H - 7.0*r*r);
-
-}
-
-vec3 grid::gradientWspiky ( vec3& r, float d ) {
- 
-	//Wspiky = ( 15.0/(MATH_PI*pow(H,6))) * pow((H-r),3 );
-	return ( (-45.0/(MATH_PI*pow(H,6)) * pow(H-d, 2) * r/d );
-
-}
-
-float grid::laplacianWviscosity ( float r ) {
-
-	//return ( (15.0/(2.0*MATH_PI*pow(H,3))) * (-pow(r,3)/(2*pow(H,3)) + ((r*r)/(H*H)) + H/(2.0*r) - 1) ); 
-  	return ( 45.0/(MATH_PI*pow(H,6)) * (H - r) );   
-
-}
-
-void grid::integrate( float dt ) {
-
-	calculateForces();
-
-	for (int i = 0; i < _particle_count; i++) {
-
-		particle& p = _particles[i];
-		vec3 oldPosition = _positions[i];
-		vec3 acceleration = p.getForce()/p.getDensity();
-		_positions[i] = oldPosition + p.getVelocity()*dt + 0.5*acceleration*dt*dt;
-		p.setVelocity( (_positions[i] - oldPosition)/dt );
-		wallCollision(i);
-		reassignParticle(i);
-	}
-
-}
-
 void grid::wallCollision( int i ) {
 	particle& p = _particles[i];
-	vec3& pos = _positions[i];
-	vec3 vel = p.getVelocity();
+	core::vec3& pos = _positions[i];
+	core::vec3 vel = p.getVelocity();
 
 	if (pos.x < 0) {
 		pos.x = -pos.x;
@@ -165,6 +94,77 @@ void grid::wallCollision( int i ) {
 	p.setVelocity(vel);
 }
 
+void grid::reassignParticle( int i ) {
+
+	particle& p = _particles[i];
+	core::vec3& pos = _positions[i];
+	int cindex = p.getCellIndex();
+	const core::vec3& start = _cells[cindex].getStart();
+	_cells[cindex].removeParticle(i);
+
+	if (pos.x < start.x) 			cindex--;
+	else if (pos.x >= start.x+1) 	cindex++;
+	if (pos.y < start.y) 			cindex-=_dimensions.x;
+	else if (pos.y >= start.y+1) 	cindex+=_dimensions.x;
+	if (pos.z < start.z) 			cindex-=_dimensions.x*_dimensions.y;
+	else if (pos.z >= start.z+1) 	cindex+=_dimensions.x*_dimensions.y;
+
+	_cells[cindex].addParticle(i);
+	p.assignCell(cindex);
+
+}
+
+
+
+float grid::WPoly6 ( float r ) {
+
+	return ( 315.0/(64.0*MATH_PI*pow(CONST_H,9)) ) * pow((CONST_H*CONST_H-r*r),3 );
+
+}
+
+core::vec3 grid::gradientWPoly6 ( core::vec3& r, float d ) {
+
+	return ( -945.0/(32.0*MATH_PI*pow(CONST_H,9)) * pow((CONST_H*CONST_H-d*d),2) * r );
+
+}
+
+float grid::laplacianWPoly6 ( float r ) {
+    
+  	return ( -945.0/(32.0*MATH_PI*pow(CONST_H,9)) * (CONST_H*CONST_H-r*r) * (3.0*CONST_H*CONST_H - 7.0*r*r) );
+
+}
+
+core::vec3 grid::gradientWSpiky ( core::vec3& r, float d ) {
+ 
+	//Wspiky = ( 15.0/(MATH_PI*pow(CONST_H,6))) * pow((CONST_H-r),3 );
+	return ( -45.0/(MATH_PI*pow(CONST_H,6)) * pow(CONST_H-d, 2) * r/d );
+
+}
+
+float grid::laplacianWViscosity ( float r ) {
+
+	//return ( (15.0/(2.0*MATH_PI*pow(CONST_H,3))) * (-pow(r,3)/(2*pow(CONST_H,3)) + ((r*r)/(CONST_H*CONST_H)) + CONST_H/(2.0*r) - 1) ); 
+  	return ( 45.0/(MATH_PI*pow(CONST_H,6)) * (CONST_H - r) );   
+
+}
+
+void grid::integrate( float dt ) {
+
+	calculateForces();
+
+	for (int i = 0; i < _particle_count; i++) {
+
+		particle& p = _particles[i];
+		core::vec3 oldPosition = _positions[i];
+		core::vec3 acceleration = p.getForce()/p.getDensity();
+		_positions[i] = oldPosition + p.getVelocity()*dt + 0.5*acceleration*dt*dt;
+		p.setVelocity( (_positions[i] - oldPosition)/dt );
+		wallCollision(i);
+		reassignParticle(i);
+	}
+
+}
+
 void grid::calculateForces ( ) {
 	
 	for (int i = 0; i < _particle_count; i++) {
@@ -187,28 +187,28 @@ void grid::calculateForces ( ) {
 		        	int cell = p.getCellIndex() + x+y*_dimensions.x+z*_dimensions.x*_dimensions.y;
 		        	for (int j = 0; j < 8; j++) {
 		        		
-		        		if (_cells[cell].getParticle(j) == -1 or _cells[cell].getParticle(j) == i ) continue;
+		        		if (_cells[cell].getParticle(j) == -1 || _cells[cell].getParticle(j) == i ) continue;
 
 		        		particle& neighbor = _particles[ _cells[cell].getParticle(j) ];
 		        		
-						d = Distance(_positions[i], _positions[_cells[cell].getParticle(j)]);
-						if ( d*d <= H*H )
-							p.setDensity( p.getDensity + WPoly6(d)*MASS );
+						float d = Distance(_positions[i], _positions[_cells[cell].getParticle(j)]);
+						if ( d*d <= CONST_H*CONST_H )
+							p.setDensity( p.getDensity() + WPoly6(d)*CONST_MASS );
 					}
 				}
 			}
 		}	//end neighbor calcs
-		p.setPressure( GAS_CONSTANT*(p.getDensity()-REST_DENSITY) );
+		p.setPressure( GAS_CONSTANT*(p.getDensity()-CONST_REST_DENSITY) );
 	}
 
 	for (int i = 0; i < _particle_count; i++) {
 		particle& p = _particles[i];
-		vec3 fGravity (0.0, particle.getDensity()*GRAVITATIONAL_ACCELERATION, 0.0);
-		vec3 fPressure;
-    	vec3 fViscosity;
-		vec3 fSurface;
-		vec3 smoothedColorFieldGradient;
-		vec3 smoothedColorFieldLaplacian;
+		core::vec3 fGravity (0.0, p.getDensity()*GRAVITATIONAL_ACCELERATION, 0.0);
+		core::vec3 fPressure;
+    	core::vec3 fViscosity;
+		core::vec3 fSurface;
+		core::vec3 smoothedColorFieldGradient;
+		float smoothedColorFieldLaplacian = 0.0f;
 		
 		//iterate over all neighbors
 
@@ -228,18 +228,18 @@ void grid::calculateForces ( ) {
 
 		        	for (int j = 0; j < 8; j++) {
 
-		        		if (_cells[cell].getParticle(j) == -1 or _cells[cell].getParticle(j) == i ) continue;
+		        		if (_cells[cell].getParticle(j) == -1 || _cells[cell].getParticle(j) == i ) continue;
 		        		
 		        		particle& neighbor = _particles[ _cells[cell].getParticle(j) ];
-						d = Distance(_positions[i], _positions[_cells[cell].getParticle(j)]);
-						r = _positions[i] - _positions[_cells[cell].getParticle(j)];
+						float d = Distance(_positions[i], _positions[_cells[cell].getParticle(j)]);
+						core::vec3 r = _positions[i] - _positions[_cells[cell].getParticle(j)];
 
-						if ( r*r <= H*H ) {
+						if ( Dot(r, r) <= CONST_H*CONST_H ) {
 
-							fPressure += (p.getPressure()/pow(p.getDensity(),2) + neighbor.getPressure()/pow(neighbor.getDensity(),2)) * gradientWspiky(r,d);
-							fViscosity += (neighbor.getVelocity() - p.getVelocity()) * laplacianWviscosity(r) / neighbor.getDensity();
-			        		smoothedColorFieldLaplacian += MASS*laplacianWpoly6(r)/neighbor.getDensity();
-							smoothedColorFieldGradient += MASS*gradientWPoly(r,d)/neighbor.getDensity();
+							fPressure += (p.getPressure()/pow(p.getDensity(),2) + neighbor.getPressure()/pow(neighbor.getDensity(),2)) * gradientWSpiky(r,d);
+							fViscosity += (neighbor.getVelocity() - p.getVelocity()) * laplacianWViscosity(d) / neighbor.getDensity();
+			        		smoothedColorFieldLaplacian += CONST_MASS * laplacianWPoly6(d) / neighbor.getDensity();
+							smoothedColorFieldGradient += CONST_MASS * gradientWPoly6(r,d) / neighbor.getDensity();
 							
 			    		}
 			    	}
@@ -247,11 +247,11 @@ void grid::calculateForces ( ) {
 		    }
 		}	//end neighbor iteration
 
-		fPressure *= -MASS * p.getDensity();
-		fViscosity *= VISCOSITY * MASS;
+		fPressure *= -CONST_MASS * p.getDensity();
+		fViscosity *= CONST_VISCOSITY * CONST_MASS;
 
-		if ( Length(colorFieldGradient) > SURFACE_TENSION_FORCE_THRESHOLD ) 
-			fSurface = -SURFACE_TENSION * smoothedColorFieldLaplacian * colorFieldGradient / Length(colorFieldGradient);
+		if ( Length(smoothedColorFieldGradient) > CONST_SURFACE_TENSION_FORCE_THRESHOLD ) 
+			fSurface = -CONST_SURFACE_TENSION * smoothedColorFieldLaplacian * smoothedColorFieldGradient / Length(smoothedColorFieldGradient);
 
 		p.setForce(fPressure + fViscosity + fSurface + fGravity);
     }
