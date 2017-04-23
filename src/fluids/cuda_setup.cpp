@@ -1,6 +1,6 @@
 #include "cuda.h"
-#include "fluid/cuda_setup.hpp"
-#include "fluid/setup.hpp"
+#include "fluids/cuda_setup.hpp"
+#include "fluids/setup.hpp"
 #include "cuda_gl_interop.h"
 #include <iostream>
 

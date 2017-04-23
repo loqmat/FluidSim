@@ -1,5 +1,5 @@
-#include "fluid/common.hpp"
-#include "fluid/gen_sphere.hpp"
+#include "fluids/common.hpp"
+#include "fluids/gen_sphere.hpp"
 #include <cmath>
 #include <iostream>
 

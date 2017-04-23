@@ -1,4 +1,4 @@
-#include "fluid/cuda_buffer.hpp"
+#include "fluids/cuda_buffer.hpp"
 
 namespace Fluids {
 

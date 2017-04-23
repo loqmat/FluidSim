@@ -1,4 +1,4 @@
-#include "fluid/camera.hpp"
+#include "fluids/camera.hpp"
 #include "core/convert.hpp"
 
 namespace Fluids {

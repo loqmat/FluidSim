@@ -1,4 +1,4 @@
-#include "fluid/cuda_uniform_buffer.hpp"
+#include "fluids/cuda_uniform_buffer.hpp"
 #include "cuda_gl_interop.h"
 
 namespace Fluids {

@@ -1,4 +1,4 @@
-#include "fluid/grid.hpp"
+#include "fluids/grid.hpp"
 
 namespace Fluids {
 

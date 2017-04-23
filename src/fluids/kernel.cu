@@ -1,12 +1,12 @@
 #include "cuda.h"
 
-#include "fluid/cuda_setup.hpp"
-#include "fluid/setup.hpp"
-#include "fluid/graphics.hpp"
-#include "fluid/camera.hpp"
-#include "fluid/cuda_buffer.hpp"
-#include "fluid/cuda_uniform_buffer.hpp"
-#include "fluid/gen_sphere.hpp"
+#include "fluids/cuda_setup.hpp"
+#include "fluids/setup.hpp"
+#include "fluids/graphics.hpp"
+#include "fluids/camera.hpp"
+#include "fluids/cuda_buffer.hpp"
+#include "fluids/cuda_uniform_buffer.hpp"
+#include "fluids/gen_sphere.hpp"
 
 #include <vector>
 #include <iostream>
