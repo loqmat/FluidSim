@@ -13,7 +13,7 @@
 
 using namespace Fluids;
 
-#define VERTEX_COUNT 1024
+#define VERTEX_COUNT 65536
 #define THREAD_COUNT 512
 #define GRAVITY_POINTS 4	
 
@@ -32,7 +32,7 @@ __global__ void gravity(float dt, core::vec4* gravpts, core::vec4* velocity, cor
 		dy[j] = gravpts[j].y - position[i].y;
 		dz[j] = gravpts[j].z - position[i].z;
 
-		mg[j] = sqrt(dx[j]*dx[j] + dy[j]*dy[j] + dz[j]*dz[j]) * gravpts[j].w;
+		mg[j] = (dx[j]*dx[j] + dy[j]*dy[j] + dz[j]*dz[j]) * gravpts[j].w;
 
 		velocity[i].x += dx[j] / mg[j] * dt;
 		velocity[i].y += dy[j] / mg[j] * dt;
@@ -42,6 +42,61 @@ __global__ void gravity(float dt, core::vec4* gravpts, core::vec4* velocity, cor
 	position[i].x += velocity[i].x * dt;
 	position[i].y += velocity[i].y * dt;
 	position[i].z += velocity[i].z * dt;
+}
+
+struct GlobalData {
+	static bool rightMousePressed;
+
+	static double xPosition;
+	static double yPosition;
+
+	static double xOldPosition;
+	static double yOldPosition;
+
+	static double xDeltaPosition;
+	static double yDeltaPosition;
+
+	static double xScroll;
+	static double yScroll;
+
+	static void UpdateMouse() {
+		xDeltaPosition = xPosition - xOldPosition;
+		xOldPosition = xPosition;
+
+		yDeltaPosition = yPosition - yOldPosition;
+		yOldPosition = yPosition;
+
+		xScroll = 0.0;
+		yScroll = 0.0;
+	}
+};
+
+bool GlobalData::rightMousePressed = false;
+double GlobalData::xPosition = 0;
+double GlobalData::yPosition = 0;
+double GlobalData::xOldPosition = 0;
+double GlobalData::yOldPosition = 0;
+double GlobalData::xDeltaPosition = 0;
+double GlobalData::yDeltaPosition = 0;
+double GlobalData::xScroll = 0;
+double GlobalData::yScroll = 0;
+
+void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) {
+	GlobalData::xPosition = xpos;
+	GlobalData::yPosition = ypos;
+}
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	if ( button == GLFW_MOUSE_BUTTON_RIGHT ) {
+		if (action == GLFW_PRESS) {
+			GlobalData::rightMousePressed = true;
+		} else if (action == GLFW_RELEASE) {
+			GlobalData::rightMousePressed = false;
+		}
+	}
+}
+void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+	GlobalData::xScroll = xoffset;
+	GlobalData::yScroll = yoffset;
 }
 
 void run(const std::vector<std::string>& args) {
@@ -56,6 +111,10 @@ void run(const std::vector<std::string>& args) {
 	glew.initialize();
 
 	glfwSwapInterval(1);
+
+	glfwSetCursorPosCallback(mainWindow, mousePositionCallback);
+	glfwSetMouseButtonCallback(mainWindow, mouseButtonCallback);
+	glfwSetScrollCallback(mainWindow, mouseScrollCallback);
 
 	CUDA cuda;
 	cuda.Setup();
@@ -141,7 +200,7 @@ void run(const std::vector<std::string>& args) {
 
 	CUDABuffer input_data(sizeof(core::vec4) * VERTEX_COUNT);
 	{
-		float velocity_range = 24.0f;
+		float velocity_range = 16.0f;
 		core::vec4* velocity = new core::vec4[VERTEX_COUNT];
 		for( int i=0;i<VERTEX_COUNT;i++ ) {
 			velocity[i].x = velocity_range * ((float)rand() / RAND_MAX - 0.5f);
@@ -206,8 +265,17 @@ void run(const std::vector<std::string>& args) {
 			int width, height;
 			glfwGetFramebufferSize(mainWindow, &width, &height);
 
-			main_camera.angle += 1.0f * _delta_time;
-			main_camera.rise = std::sin(_current_time / 3.0f);
+			if ( GlobalData::rightMousePressed ) {
+				main_camera.angle -= 0.8f * deg2rad * (float)GlobalData::xDeltaPosition;
+				main_camera.rise = (float)std::min( 80.0 * deg2rad, 
+										  std::max( -80.0 * deg2rad, 
+										  (double)main_camera.rise - 0.3 * deg2rad * GlobalData::yDeltaPosition ) );
+			}
+			if ( GlobalData::yScroll < 0 )
+				main_camera.arm_length = std::min(1024.0f, main_camera.arm_length * (float)std::pow(1.1f, -GlobalData::yScroll));
+			else if ( GlobalData::yScroll > 0 )
+				main_camera.arm_length = std::max(16.0f, main_camera.arm_length * (float)std::pow(0.9f, GlobalData::yScroll));
+
 			{
 				core::mat4 data;
 				main_camera.fillMatrix((float)width/height, data);
@@ -218,11 +286,9 @@ void run(const std::vector<std::string>& args) {
 			glViewport(0, 0, width, height);
 			glClearColor(1,0,0,1);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-			checkGLResult();
 
 			glBindBuffer(GL_ARRAY_BUFFER, array_buffer);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
-			checkGLResult();
 
 			glEnableVertexAttribArray(0);
 			glEnableVertexAttribArray(1);
@@ -234,19 +300,12 @@ void run(const std::vector<std::string>& args) {
 			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 6));
 			glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 8));
 
-			checkGLResult();
-
 			for ( int iteration=0;iteration<draw_iterations;iteration++ ) {
 				matrix_data.bindGL(0, iteration * max_uniform_buffer_range, max_uniform_buffer_range);
 				glDrawElementsInstanced(GL_TRIANGLES, 3 * draw_face_count, GL_UNSIGNED_BYTE, 0, max_uniform_buffer_units);
 			}
 
-			//glDrawElements(GL_TRIANGLES, 3 * draw_face_count, GL_UNSIGNED_BYTE, 0);
-
-			checkGLResult();
-
 			glFinish();
-			checkGLResult();
 		}
 
 	//----------------------------------------------------------------------------------------------
@@ -254,15 +313,14 @@ void run(const std::vector<std::string>& args) {
 	//----------------------------------------------------------------------------------------------
 		{
 			glfwSwapBuffers(mainWindow);
+			GlobalData::UpdateMouse();
 			glfwPollEvents();
 
-			checkGLResult();
-
 			double ct = glfwGetTime();
+			
 			_delta_time = ct - _current_time;
 			_current_time = ct;
 			_fps = 0.9 * _fps + 0.1 * (1.0 / _delta_time);
-			//std::cerr << "FPS " << std::setw(10) << _fps << std::endl;
 		}
 
 	}
