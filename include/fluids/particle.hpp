@@ -19,7 +19,6 @@ namespace Fluids {
 			_cell_index = -1;
 		}
 
-
 		//ACCESSORS
 	 	CUDA_SHARED_FUNCTION const core::vec3& getVelocity() const { return _velocity; }
 	 	CUDA_SHARED_FUNCTION const core::vec3& getForce() const { return _force; }

@@ -8,7 +8,8 @@
 
 typedef unsigned char byte;
 
-#define CUDA_SHARED_FUNCTION __global__
+#define CUDA_GLOBAL_FUNCTION __global__
 #define CUDA_EXPORTED_FUNCTION __device__
+#define CUDA_SHARED_FUNCTION __device__ __host__
 
 #endif//__FLUID_COMMON_HPP__

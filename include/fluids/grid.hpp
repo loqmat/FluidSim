@@ -48,6 +48,10 @@ namespace Fluids {
 		CUDA_EXPORTED_FUNCTION void wallCollision( int i );
 		CUDA_EXPORTED_FUNCTION void reassignParticle( int i );
 
+		int getParticleCount () { return _particle_count; }
+		void bindPositions() { _positions.bindCUDA(); }
+		void unbindPositions() { _positions.unbindCUDA(); }
+
 		//smoothing kernel
 		CUDA_EXPORTED_FUNCTION float WPoly6 ( float r );
 		CUDA_EXPORTED_FUNCTION vec3 gradientWPoly6 ( vec3& r, float d );
@@ -55,8 +59,8 @@ namespace Fluids {
 		CUDA_EXPORTED_FUNCTION vec3 gradientWSpiky ( vec3& r, float d );
 		CUDA_EXPORTED_FUNCTION float laplacianWViscosity ( float r );
 
-		CUDA_EXPORTED_FUNCTION void integrate( float dt );
-		CUDA_EXPORTED_FUNCTION void calculateForces ( );
+		CUDA_EXPORTED_FUNCTION void integrate( float dt, int i );
+		CUDA_EXPORTED_FUNCTION void calculateForces ( int i );
 
 	private:
 
