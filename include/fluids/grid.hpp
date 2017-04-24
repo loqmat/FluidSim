@@ -8,7 +8,7 @@
 
 #define GRAVITATIONAL_ACCELERATION -9.80665 //m/s^2
 #define CONST_H 5.0 //between 0 and 0.5 //.0457
-#define CONST_MASS 10000.0
+#define CONST_MASS 50.0
 #define GAS_CONSTANT 3.0 
 #define CONST_REST_DENSITY 998.29 //kg/m^3
 #define CONST_VISCOSITY 3.5
@@ -72,13 +72,13 @@ namespace Fluids {
 		CUDA_DEVICE_FUNCTION static void reassignParticle( device_data&, int i );
 
 		//smoothing kernel
-		CUDA_DEVICE_FUNCTION static float WPoly6 ( float r );
-		CUDA_DEVICE_FUNCTION static core::vec3 gradientWPoly6 ( core::vec3& r, float d );
-		CUDA_DEVICE_FUNCTION static float laplacianWPoly6 ( float r );
-		CUDA_DEVICE_FUNCTION static core::vec3 gradientWSpiky ( core::vec3& r, float d );
-		CUDA_DEVICE_FUNCTION static float laplacianWViscosity ( float r );
+		CUDA_DEVICE_FUNCTION static double WPoly6 ( double r );
+		CUDA_DEVICE_FUNCTION static core::vec3 gradientWPoly6 ( core::vec3& r, double d );
+		CUDA_DEVICE_FUNCTION static double laplacianWPoly6 ( double r );
+		CUDA_DEVICE_FUNCTION static core::vec3 gradientWSpiky ( core::vec3& d, double r );
+		CUDA_DEVICE_FUNCTION static double laplacianWViscosity ( double r );
 
-		CUDA_DEVICE_FUNCTION static void integrate( device_data&, int i, float dt );
+		CUDA_DEVICE_FUNCTION static void integrate( device_data&, int i, double dt );
 		CUDA_DEVICE_FUNCTION static void calculatePressure ( device_data&, int i );
 		CUDA_DEVICE_FUNCTION static void calculateForces ( device_data&, int i );
 

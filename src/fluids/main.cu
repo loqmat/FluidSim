@@ -119,7 +119,7 @@ void run(const std::vector<std::string>& args) {
 //--------------------------------------------------------------------------------------------------
 
 	Camera main_camera;
-	main_camera.arm_length = 16.0f;
+	main_camera.arm_length = 4.0f;
 	main_camera.rise = -1.0f;
 
 	Shader shader_flat;
@@ -141,7 +141,7 @@ void run(const std::vector<std::string>& args) {
 // MAKE A FANCY, FANCY PARTICLE GRID!!!
 //--------------------------------------------------------------------------------------------------
 
-	grid sim(2,2,2, 0.5);
+	grid sim(20,20,20, 0.5);
 
 //--------------------------------------------------------------------------------------------------
 // MAIN LOOP
@@ -157,7 +157,7 @@ void run(const std::vector<std::string>& args) {
 	// CUDA Segment
 	//----------------------------------------------------------------------------------------------
 		
-		runCUDASimulation(sim, 0.0005);
+		runCUDASimulation(sim, 0.01);
 
 	//----------------------------------------------------------------------------------------------
 	// OpenGL Segment
@@ -179,7 +179,7 @@ void run(const std::vector<std::string>& args) {
 			if ( GlobalData::yScroll < 0 )
 				main_camera.arm_length = std::min(1024.0f, main_camera.arm_length * (float)std::pow(1.1f, -GlobalData::yScroll));
 			else if ( GlobalData::yScroll > 0 )
-				main_camera.arm_length = std::max(16.0f, main_camera.arm_length * (float)std::pow(0.9f, GlobalData::yScroll));
+				main_camera.arm_length = std::max(2.0f, main_camera.arm_length * (float)std::pow(0.9f, GlobalData::yScroll));
 
 			{
 				core::mat4 data;
