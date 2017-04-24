@@ -6,6 +6,7 @@
 
 #include "base/types.hpp"
 #include "core/core_defs.hpp"
+#include "common.hpp"
 
 namespace core {
 
@@ -24,29 +25,29 @@ namespace core {
 #define DIV3(A,B,a,b,c,C,D) 	DIV2(A,B,a,b,C,D) D DIV1(A,B,c,C)
 #define DIV4(A,B,a,b,c,d,C,D) 	DIV3(A,B,a,b,c,C,D) D DIV1(A,B,d,C)
 
-#define OPERATION2(prefix,x,y)		VECN(2) prefix () const;
-#define OPERATION3(prefix,x,y,z) 	VECN(3) prefix () const;
-#define OPERATION4(prefix,x,y,z,w)	VECN(4) prefix () const;
+#define OPERATION2(prefix,x,y)		CUDA_SHARED_FUNCTION VECN(2) prefix () const;
+#define OPERATION3(prefix,x,y,z) 	CUDA_SHARED_FUNCTION VECN(3) prefix () const;
+#define OPERATION4(prefix,x,y,z,w)	CUDA_SHARED_FUNCTION VECN(4) prefix () const;
 
-#define OPERATION22(prefix,x,y)		TEMP1 VECN(2) VECN(2)::prefix () \
+#define OPERATION22(prefix,x,y)		TEMP1 CUDA_SHARED_FUNCTION VECN(2) VECN(2)::prefix () \
 									const { return VECN(2)(x,y); }
-#define OPERATION23(prefix,x,y,z) 	TEMP1 VECN(3) VECN(2)::prefix () \
+#define OPERATION23(prefix,x,y,z) 	TEMP1 CUDA_SHARED_FUNCTION VECN(3) VECN(2)::prefix () \
 									const { return VECN(3)(x,y,z); }
-#define OPERATION24(prefix,x,y,z,w)	TEMP1 VECN(4) VECN(2)::prefix () \
+#define OPERATION24(prefix,x,y,z,w)	TEMP1 CUDA_SHARED_FUNCTION VECN(4) VECN(2)::prefix () \
 									const { return VECN(4)(x,y,z,w); }
 
-#define OPERATION32(prefix,x,y)		TEMP1 VECN(2) VECN(3)::prefix () \
+#define OPERATION32(prefix,x,y)		TEMP1 CUDA_SHARED_FUNCTION VECN(2) VECN(3)::prefix () \
 									const { return VECN(2)(x,y); }
-#define OPERATION33(prefix,x,y,z) 	TEMP1 VECN(3) VECN(3)::prefix () \
+#define OPERATION33(prefix,x,y,z) 	TEMP1 CUDA_SHARED_FUNCTION VECN(3) VECN(3)::prefix () \
 									const { return VECN(3)(x,y,z); }
-#define OPERATION34(prefix,x,y,z,w)	TEMP1 VECN(4) VECN(3)::prefix () \
+#define OPERATION34(prefix,x,y,z,w)	TEMP1 CUDA_SHARED_FUNCTION VECN(4) VECN(3)::prefix () \
 									const { return VECN(4)(x,y,z,w); }
 
-#define OPERATION42(prefix,x,y)		TEMP1 VECN(2) VECN(4)::prefix () \
+#define OPERATION42(prefix,x,y)		TEMP1 CUDA_SHARED_FUNCTION VECN(2) VECN(4)::prefix () \
 									const { return VECN(2)(x,y); }
-#define OPERATION43(prefix,x,y,z) 	TEMP1 VECN(3) VECN(4)::prefix () \
+#define OPERATION43(prefix,x,y,z) 	TEMP1 CUDA_SHARED_FUNCTION VECN(3) VECN(4)::prefix () \
 									const { return VECN(3)(x,y,z); }
-#define OPERATION44(prefix,x,y,z,w)	TEMP1 VECN(4) VECN(4)::prefix () \
+#define OPERATION44(prefix,x,y,z,w)	TEMP1 CUDA_SHARED_FUNCTION VECN(4) VECN(4)::prefix () \
 									const { return VECN(4)(x,y,z,w); }
 
 #define PERMUTE221(x,a,b,FUNC) \
@@ -201,26 +202,26 @@ namespace core {
 
 #define OPERATOR2RE(op) \
 		TEMP2 \
-		VECN(2) operator op (const VECN2(2)& n) const { \
+		CUDA_SHARED_FUNCTION VECN(2) operator op (const VECN2(2)& n) const { \
 			return VECN(2)( x op n.x, y op n.y ); }
 
 #define OPERATOR2IP(op) \
 		OPERATOR2RE(op) \
 		TEMP2 \
-		VECN(2)& operator op##= (const VECN2(2)& n) { \
+		CUDA_SHARED_FUNCTION VECN(2)& operator op##= (const VECN2(2)& n) { \
 			x op##= n.x; \
 			y op##= n.y; \
 			return *this; }
 
 #define OPERATOR3RE(op) \
 		TEMP2 \
-		VECN(3) operator op (const VECN2(3)& n) const { \
+		CUDA_SHARED_FUNCTION VECN(3) operator op (const VECN2(3)& n) const { \
 			return VECN(3)( x op n.x, y op n.y, z op n.z ); }
 
 #define OPERATOR3IP(op) \
 		OPERATOR3RE(op) \
 		TEMP2 \
-		VECN(3)& operator op##= (const VECN2(3)& n) { \
+		CUDA_SHARED_FUNCTION VECN(3)& operator op##= (const VECN2(3)& n) { \
 			x op##= n.x; \
 			y op##= n.y; \
 			z op##= n.z; \
@@ -228,13 +229,13 @@ namespace core {
 
 #define OPERATOR4RE(op) \
 		TEMP2 \
-		VECN(4) operator op (const VECN2(4)& n) const { \
+		CUDA_SHARED_FUNCTION VECN(4) operator op (const VECN2(4)& n) const { \
 			return VECN(4)( x op n.x, y op n.y, z op n.z, w op n.w ); }
 
 #define OPERATOR4IP(op) \
 		OPERATOR4RE(op) \
 		TEMP2 \
-		VECN(4)& operator op##= (const VECN2(4)& n) { \
+		CUDA_SHARED_FUNCTION VECN(4)& operator op##= (const VECN2(4)& n) { \
 			x op##= n.x; \
 			y op##= n.y; \
 			z op##= n.z; \
@@ -242,15 +243,15 @@ namespace core {
 			return *this; }
 
 #define OPERATOR2UN(op) \
-		VECN(2) operator op () const { \
+		CUDA_SHARED_FUNCTION VECN(2) operator op () const { \
 			return VECN(2)( op x, op y ); \
 		}
 #define OPERATOR3UN(op) \
-		VECN(3) operator op () const { \
+		CUDA_SHARED_FUNCTION VECN(3) operator op () const { \
 			return VECN(3)( op x, op y, op z ); \
 		}
 #define OPERATOR4UN(op) \
-		VECN(4) operator op () const { \
+		CUDA_SHARED_FUNCTION VECN(4) operator op () const { \
 			return VECN(4)( op x, op y, op z, op w ); \
 		}
 
@@ -302,34 +303,34 @@ namespace core {
 										d = *(args.begin()+3);
 
 #define FULLCTOR( n, a,b,c,d ) \
-	vec##n##_t() : CTOR##n##_DEFAULT_ARGS(a,b,c,d) { ; } \
-	vec##n##_t( CTOR##n##_BASE_ARGS ) : CTOR##n##_BASE_ASSIGN(a,b,c,d) { ; } \
-	vec##n##_t(const VECN(n)& copy ) \
+	CUDA_SHARED_FUNCTION vec##n##_t() : CTOR##n##_DEFAULT_ARGS(a,b,c,d) { ; } \
+	CUDA_SHARED_FUNCTION vec##n##_t( CTOR##n##_BASE_ARGS ) : CTOR##n##_BASE_ASSIGN(a,b,c,d) { ; } \
+	CUDA_SHARED_FUNCTION vec##n##_t(const VECN(n)& copy ) \
 	: CTOR##n##_COPY_ASSIGN(a,b,c,d) { ; } \
-	template<typename TEMPLATE_NAME2> vec##n##_t( const VECN2(n)& copy ) \
+	template<typename TEMPLATE_NAME2> CUDA_SHARED_FUNCTION  vec##n##_t( const VECN2(n)& copy ) \
 	: CTOR##n##_COPY_ASSIGN(a,b,c,d) { } \
-	template<typename TEMPLATE_NAME2> vec##n##_t<TEMPLATE_NAME>& \
+	template<typename TEMPLATE_NAME2> CUDA_SHARED_FUNCTION vec##n##_t<TEMPLATE_NAME>& \
 		operator=( const VECN2(n)& copy ) \
 		{ CTOR##n##_COPY_EQUALS(a,b,c,d) return *this; }
 
 #define VECTOR_MATH(n) \
-		TEMP1 TEMPLATE_NAME Distance( const VECN(n)& a, const VECN(n)& b )\
+		TEMP1 CUDA_SHARED_FUNCTION TEMPLATE_NAME Distance( const VECN(n)& a, const VECN(n)& b )\
 			{ return Length(b-a); }\
-		TEMP1 float32 Angle(const VECN(n)& a,const VECN(n)& b)\
+		TEMP1 CUDA_SHARED_FUNCTION float32 Angle(const VECN(n)& a,const VECN(n)& b)\
 			{ return acos( ( Dot(a,b) ) / ( Length(a) * Length(b) ) ); }\
-		TEMP1 VECN(n) Normalize( const VECN(n)& a )\
+		TEMP1 CUDA_SHARED_FUNCTION VECN(n) Normalize( const VECN(n)& a )\
 			{ return a / Length(a); }\
-		TEMP3 VECN(n) operator* ( TEMPLATE_NAME2 a, const VECN(n)& b )\
+		TEMP3 CUDA_SHARED_FUNCTION VECN(n) operator* ( TEMPLATE_NAME2 a, const VECN(n)& b )\
 			{ return VECN(n)( COMPONENT ## n ## OP( b, a, * ) ); }\
-		TEMP3 VECN(n) operator* ( const VECN(n)& a, TEMPLATE_NAME2 b )\
+		TEMP3 CUDA_SHARED_FUNCTION VECN(n) operator* ( const VECN(n)& a, TEMPLATE_NAME2 b )\
 			{ return VECN(n)( COMPONENT ## n ## OP( a, b, * ) ); }\
-		TEMP3 VECN(n) operator/ ( TEMPLATE_NAME2 a, const VECN(n)& b )\
+		TEMP3 CUDA_SHARED_FUNCTION VECN(n) operator/ ( TEMPLATE_NAME2 a, const VECN(n)& b )\
 			{ return VECN(n)( COMPONENT ## n ## OP( b, a, / ) ); }\
-		TEMP3 VECN(n) operator/ ( const VECN(n)& a, TEMPLATE_NAME2 b )\
+		TEMP3 CUDA_SHARED_FUNCTION VECN(n) operator/ ( const VECN(n)& a, TEMPLATE_NAME2 b )\
 			{ return VECN(n)( COMPONENT ## n ## OP( a, b, / ) ); }\
-		TEMP3 VECN(n)& operator*= ( VECN(n)& a, TEMPLATE_NAME2 b )\
+		TEMP3 CUDA_SHARED_FUNCTION VECN(n)& operator*= ( VECN(n)& a, TEMPLATE_NAME2 b )\
 			{ COMPONENT ## n ## IP( a, b, *= ); return a; }\
-		TEMP3 VECN(n)& operator/= ( VECN(n)& a, TEMPLATE_NAME2 b )\
+		TEMP3 CUDA_SHARED_FUNCTION VECN(n)& operator/= ( VECN(n)& a, TEMPLATE_NAME2 b )\
 			{ COMPONENT ## n ## IP( a, b, /= ); return a; }
 
 #define VECTOR_ABBR(n) \
@@ -353,8 +354,8 @@ TEMP1 struct  vec2_t {
 	FULLCTOR(2, x,y,z,w)
 	FULLOPERATOR(2)
 
-	bool operator== (const VECN(2)& n) const { return ( DIV2(this->,n.,x,y,==,&&) ); }
-	bool operator!= (const VECN(2)& n) const { return ( DIV2(this->,n.,x,y,!=,||) ); }
+	CUDA_SHARED_FUNCTION bool operator== (const VECN(2)& n) const { return ( DIV2(this->,n.,x,y,==,&&) ); }
+	CUDA_SHARED_FUNCTION bool operator!= (const VECN(2)& n) const { return ( DIV2(this->,n.,x,y,!=,||) ); }
 
 	PERMUTE2(x,y,OPERATION2,OPERATION3,OPERATION4)
 
@@ -367,8 +368,8 @@ TEMP1 struct vec3_t {
 	FULLCTOR(3, x,y,z,w)
 	FULLOPERATOR(3)
 
-	bool operator== (const VECN(3)& n) const { return ( DIV3(this->,n.,x,y,z,==,&&) ); }
-	bool operator!= (const VECN(3)& n) const { return ( DIV3(this->,n.,x,y,z,!=,||) ); }
+	CUDA_SHARED_FUNCTION bool operator== (const VECN(3)& n) const { return ( DIV3(this->,n.,x,y,z,==,&&) ); }
+	CUDA_SHARED_FUNCTION bool operator!= (const VECN(3)& n) const { return ( DIV3(this->,n.,x,y,z,!=,||) ); }
 
 	PERMUTE3(x,y,z,OPERATION2,OPERATION3,OPERATION4)
 
@@ -381,8 +382,8 @@ TEMP1 struct  vec4_t {
 	FULLCTOR(4, x,y,z,w)
 	FULLOPERATOR(4);
 
-	bool operator== (const VECN(4)& n) const { return ( DIV3(this->,n.,x,y,z,==,&&) ); }
-	bool operator!= (const VECN(4)& n) const { return ( DIV3(this->,n.,x,y,z,!=,||) ); }
+	CUDA_SHARED_FUNCTION bool operator== (const VECN(4)& n) const { return ( DIV3(this->,n.,x,y,z,==,&&) ); }
+	CUDA_SHARED_FUNCTION bool operator!= (const VECN(4)& n) const { return ( DIV3(this->,n.,x,y,z,!=,||) ); }
 
 	PERMUTE4(x,y,z,w,OPERATION2,OPERATION3,OPERATION4)
 
@@ -392,25 +393,25 @@ PERMUTE2(x,y,OPERATION22,OPERATION23,OPERATION24);
 PERMUTE3(x,y,z,OPERATION32,OPERATION33,OPERATION34);
 PERMUTE4(x,y,z,w,OPERATION42,OPERATION43,OPERATION44);
 
-TEMP1 TEMPLATE_NAME Dot( const VECN(2)& a,const VECN(2)& b )
+TEMP1 CUDA_SHARED_FUNCTION TEMPLATE_NAME Dot( const VECN(2)& a,const VECN(2)& b )
 	{ return DIV2(a.,b., x,y, *,+); }
-TEMP1 TEMPLATE_NAME Length( const VECN(2)& a )
+TEMP1 CUDA_SHARED_FUNCTION TEMPLATE_NAME Length( const VECN(2)& a )
 	{ return std::sqrt( DIV2(a.,a., x,y, *,+) ); }
 VECTOR_MATH(2);
 
-TEMP1 TEMPLATE_NAME Dot( const VECN(3)& a,const VECN(3)& b )
+TEMP1 CUDA_SHARED_FUNCTION TEMPLATE_NAME Dot( const VECN(3)& a,const VECN(3)& b )
 	{ return DIV3(a.,b., x,y,z, *,+); }
-TEMP1 TEMPLATE_NAME Length( const VECN(3)& a )
+TEMP1 CUDA_SHARED_FUNCTION TEMPLATE_NAME Length( const VECN(3)& a )
 	{ return std::sqrt( DIV3(a.,a., x,y,z, *,+) ); }
 VECTOR_MATH(3);
 
-TEMP1 TEMPLATE_NAME Dot( const VECN(4)& a,const VECN(4)& b )
+TEMP1 CUDA_SHARED_FUNCTION TEMPLATE_NAME Dot( const VECN(4)& a,const VECN(4)& b )
 	{ return DIV4(a.,b., x,y,z,w, *,+); }
-TEMP1 TEMPLATE_NAME Length( const VECN(4)& a )
+TEMP1 CUDA_SHARED_FUNCTION TEMPLATE_NAME Length( const VECN(4)& a )
 	{ return std::sqrt( DIV4(a.,a., x,y,z,w, *,+) ); }
 VECTOR_MATH(4);
 
-TEMP1 VECN(3) Cross( const VECN(3)& a, const VECN(3)& b ) {
+TEMP1 CUDA_SHARED_FUNCTION VECN(3) Cross( const VECN(3)& a, const VECN(3)& b ) {
 	return VECN(3)( a.y*b.z - a.z*b.y,
 					a.z*b.x - a.x*b.z,
 					a.x*b.y - a.y*b.x );

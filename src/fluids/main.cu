@@ -1,5 +1,3 @@
-#include "cuda.h"
-
 #include "fluids/grid.hpp"
 #include "fluids/cuda_setup.hpp"
 #include "fluids/setup.hpp"
@@ -12,9 +10,9 @@
 #include <vector>
 #include <iostream>
 
-#define THREAD_COUNT 512
-
 using namespace Fluids;
+
+void createFlatShader(Shader& shad);
 
 struct GlobalData {
 	static bool rightMousePressed;
@@ -71,12 +69,6 @@ void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 	GlobalData::yScroll = yoffset;
 }
 
-__global__ void runSimulation(grid& sim, double dt) {
-	int i = blockIdx.x * blockDim.x + threadIdx.x;
-	sim.calculateForces(i);
-	sim.integrate(dt,i);
-}
-
 void run(const std::vector<std::string>& args) {
 //--------------------------------------------------------------------------------------------------
 // Initialize Components
@@ -98,24 +90,18 @@ void run(const std::vector<std::string>& args) {
 	cuda.Setup();
 	cuda.GLSetup();
 
-	grid sim(100,100,100);
-
 //--------------------------------------------------------------------------------------------------
 // Discover Rendering Restrictions
 //--------------------------------------------------------------------------------------------------
 
-	GLint draw_iterations;
 	GLint max_uniform_buffer_range;
 	GLint max_uniform_buffer_units;
 
 	glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &max_uniform_buffer_range);
-
-	draw_iterations = 4 * VERTEX_COUNT / max_uniform_buffer_range;
 	max_uniform_buffer_units = max_uniform_buffer_range / 4;
 
 	std::cerr << "Max Number of Vec4s  : " << max_uniform_buffer_units << std::endl;
 	std::cerr << "Max Number of Floats : " << max_uniform_buffer_range << std::endl;
-	std::cerr << "Number of Draw Calls : " << draw_iterations << std::endl;
 
 //--------------------------------------------------------------------------------------------------
 // Generate Draw Buffer
@@ -126,14 +112,14 @@ void run(const std::vector<std::string>& args) {
 	GLuint array_buffer;
 	GLuint index_buffer;
 
-	generateSphere( draw_vertex_count, draw_face_count, array_buffer, index_buffer, 1.0f, 4 );
+	generateSphere( draw_vertex_count, draw_face_count, array_buffer, index_buffer, 0.5f, 4 );
 
 //--------------------------------------------------------------------------------------------------
 // OpenGL Shaders and Uniforms
 //--------------------------------------------------------------------------------------------------
 
 	Camera main_camera;
-	main_camera.arm_length = 128.0f;
+	main_camera.arm_length = 16.0f;
 	main_camera.rise = -1.0f;
 
 	Shader shader_flat;
@@ -152,6 +138,12 @@ void run(const std::vector<std::string>& args) {
 		throw "Got OpenGL Error during Setup!";
 
 //--------------------------------------------------------------------------------------------------
+// MAKE A FANCY, FANCY PARTICLE GRID!!!
+//--------------------------------------------------------------------------------------------------
+
+	grid sim(10,10,10);
+
+//--------------------------------------------------------------------------------------------------
 // MAIN LOOP
 //--------------------------------------------------------------------------------------------------
 	double _current_time = glfwGetTime();
@@ -164,19 +156,17 @@ void run(const std::vector<std::string>& args) {
 	//----------------------------------------------------------------------------------------------
 	// CUDA Segment
 	//----------------------------------------------------------------------------------------------
-		{
-			sim.bindPositions();
-			runSimulation<<<sim.getParticleCount()/THREAD_COUNT,THREAD_COUNT>>>(
-				sim,
-				_delta_time )						
-			checkCUDAResult();
-			sim.unbindPositions();
-		}
+		
+		runCUDASimulation(sim, _delta_time);
 
 	//----------------------------------------------------------------------------------------------
 	// OpenGL Segment
 	//----------------------------------------------------------------------------------------------
 		{
+			GLint draw_iterations = 4 * sim.getParticleCount() / max_uniform_buffer_range;
+			GLint draw_remainder = sim.getParticleCount() - draw_iterations * 4 * max_uniform_buffer_range;
+
+
 			int width, height;
 			glfwGetFramebufferSize(mainWindow, &width, &height);
 
@@ -216,8 +206,12 @@ void run(const std::vector<std::string>& args) {
 			glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 8));
 
 			for ( int iteration=0;iteration<draw_iterations;iteration++ ) {
-				matrix_data.bindGL(0, iteration * max_uniform_buffer_range, max_uniform_buffer_range);
+				sim.getUniformBuffer().bindGL(0, iteration * max_uniform_buffer_range, max_uniform_buffer_range);
 				glDrawElementsInstanced(GL_TRIANGLES, 3 * draw_face_count, GL_UNSIGNED_BYTE, 0, max_uniform_buffer_units);
+			}
+			if ( draw_remainder > 0 ) {
+				sim.getUniformBuffer().bindGL(0, draw_iterations * max_uniform_buffer_range, draw_remainder);
+				glDrawElementsInstanced(GL_TRIANGLES, 3 * draw_face_count, GL_UNSIGNED_BYTE, 0, draw_remainder);	
 			}
 
 			glFinish();

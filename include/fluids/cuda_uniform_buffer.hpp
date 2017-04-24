@@ -11,6 +11,8 @@
 #include "cuda_setup.hpp"
 #include "cuda_gl_interop.h"
 
+#include <iostream>
+
 namespace Fluids {
 
 	template<typename T>
@@ -26,17 +28,21 @@ namespace Fluids {
 
 	public:
 
-		UniformBuffer(std::size_t bytes) :
-			_byte_size(bytes) {
+		UniformBuffer(std::size_t size) :
+			_byte_size(size) {
+
+			std::cerr << "MOOoooOOO" << std::endl;
 
 			glGenBuffers(1, &_gl_buffer);
 			glBindBuffer(GL_UNIFORM_BUFFER, _gl_buffer);
-			glBufferData(GL_UNIFORM_BUFFER, bytes, NULL, GL_DYNAMIC_DRAW);
+			glBufferData(GL_UNIFORM_BUFFER, _byte_size * sizeof(T), NULL, GL_DYNAMIC_DRAW);
 			glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 			checkCUDAReturn( cudaStreamCreateWithFlags(&_cuda_stream, cudaStreamDefault) );
 			checkCUDAReturn( cudaGraphicsGLRegisterBuffer(&_cuda_resource, _gl_buffer, cudaGraphicsRegisterFlagsNone) );
 			checkCUDAReturn( cudaDeviceSynchronize() );
+
+			std::cerr << "MOOoooOOO" << std::endl;
 		}
 		~UniformBuffer() {
 			glDeleteBuffers(1, &_gl_buffer);
@@ -49,29 +55,13 @@ namespace Fluids {
 			return _gl_buffer;
 		}
 
-		operator T* () {
-			return _bound_data;
-		}
-		operator const T* () const {
-			return _bound_data;
-		}
-
-		T& operator[] (int i) {
-			if ( _bound_data == NULL )
-				throw "Cannot access uniform buffer, data is not bound to CUDA!";
-			return _bound_data[i];
-		}
-		const T& operator[] (int i) const {
-			if ( _bound_data == NULL )
-				throw "Cannot access uniform buffer, data is not bound to CUDA!";
-			return _bound_data[i];
-		}
-
-		void bindCUDA() {
+		T* bindCUDA() {
+			T* mapped_data;
 			std::size_t mapped_size;
 			checkCUDAReturn( cudaGraphicsMapResources( 1, &_cuda_resource, _cuda_stream ) );
-			checkCUDAReturn( cudaGraphicsResourceGetMappedPointer( (void**)&_bound_data, &mapped_size, _cuda_resource ) );
+			checkCUDAReturn( cudaGraphicsResourceGetMappedPointer( (void**)&mapped_data, &mapped_size, _cuda_resource ) );
 			checkCUDAReturn( cudaDeviceSynchronize() );
+			return mapped_data;
 		}
 		void unbindCUDA() {
 			checkCUDAReturn( cudaGraphicsUnmapResources( 1, &_cuda_resource, _cuda_stream ) );

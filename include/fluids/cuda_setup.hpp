@@ -3,8 +3,7 @@
 #ifndef __CUDA_ERROR_HANDLING_HPP__
 #define __CUDA_ERROR_HANDLING_HPP__
 
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
+#include "common.hpp"
 
 namespace Fluids {
 	struct CUDA {

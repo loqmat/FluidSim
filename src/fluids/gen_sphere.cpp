@@ -1,4 +1,4 @@
-#include "fluids/common.hpp"
+#include "common.hpp"
 #include "fluids/gen_sphere.hpp"
 #include <cmath>
 #include <iostream>
