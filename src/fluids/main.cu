@@ -141,13 +141,13 @@ void run(const std::vector<std::string>& args) {
 // MAKE A FANCY, FANCY PARTICLE GRID!!!
 //--------------------------------------------------------------------------------------------------
 
-	grid sim(10,10,10);
+	grid sim(2,2,2, 0.5);
 
 //--------------------------------------------------------------------------------------------------
 // MAIN LOOP
 //--------------------------------------------------------------------------------------------------
 	double _current_time = glfwGetTime();
-	double _delta_time = 0.0;
+	double _delta_time = 0.016;
 	double _fps = 0.0f;
 
 	while (!glfwWindowShouldClose(mainWindow))
@@ -157,7 +157,7 @@ void run(const std::vector<std::string>& args) {
 	// CUDA Segment
 	//----------------------------------------------------------------------------------------------
 		
-		runCUDASimulation(sim, _delta_time);
+		runCUDASimulation(sim, 0.0005);
 
 	//----------------------------------------------------------------------------------------------
 	// OpenGL Segment

@@ -7,8 +7,8 @@
 #include "cuda_uniform_buffer.hpp"
 
 #define GRAVITATIONAL_ACCELERATION -9.80665 //m/s^2
-#define CONST_H 0.3 //between 0 and 0.5 //.0457
-#define CONST_MASS 1.0
+#define CONST_H 5.0 //between 0 and 0.5 //.0457
+#define CONST_MASS 10000.0
 #define GAS_CONSTANT 3.0 
 #define CONST_REST_DENSITY 998.29 //kg/m^3
 #define CONST_VISCOSITY 3.5
@@ -57,7 +57,7 @@ namespace Fluids {
 				particle_count(g._particle_count) { ; }
 		};
 
-		grid(int length, int width, int depth);
+		grid(int length, int width, int depth, float filled);
 		//particle* addParticle(vec4 position);
 
 		int getParticleCount () { return _particle_count; }

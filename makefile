@@ -15,4 +15,4 @@ windows_run: windows
 	./bin/$(OUTPUT_NAME).exe
 
 windows:
-	$(CC) $(SRCS) -I./include $(WIN_LIBS) -o ./bin/$(OUTPUT_NAME).exe
+	$(CC) $(SRCS) -arch=compute_50 -I./include $(WIN_LIBS) -o ./bin/$(OUTPUT_NAME).exe
