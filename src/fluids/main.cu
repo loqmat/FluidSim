@@ -7,11 +7,13 @@
 #include "fluids/cuda_uniform_buffer.hpp"
 #include "fluids/gen_sphere.hpp"
 
+#include <windows.h>
 #include <vector>
 #include <iostream>
 
 using namespace Fluids;
 
+void createBoxShader(Shader& shad);
 void createFlatShader(Shader& shad);
 
 struct GlobalData {
@@ -114,6 +116,37 @@ void run(const std::vector<std::string>& args) {
 
 	generateSphere( draw_vertex_count, draw_face_count, array_buffer, index_buffer, 0.5f, 4 );
 
+	GLuint draw_cube_buffer;
+	glGenBuffers(1,&draw_cube_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, draw_cube_buffer);
+	float data[] = {
+		0,0,0, 1,0,0,
+		0,0,0, 0,1,0,
+		0,0,0, 0,0,1,
+
+		1,1,1, 0,1,1,
+		1,1,1, 1,0,1,
+		1,1,1, 1,1,0,
+
+		1,0,0, 1,0,1,
+		1,0,0, 1,1,0,
+
+		0,1,0, 1,1,0, 
+		0,1,0, 0,1,1,
+
+		0,0,1, 1,0,1,
+		0,0,1, 0,1,1
+	};
+	glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+//--------------------------------------------------------------------------------------------------
+// MAKE A FANCY, FANCY PARTICLE GRID!!!
+//--------------------------------------------------------------------------------------------------
+
+	float grid_dimension = 10;
+	grid sim(grid_dimension, grid_dimension, grid_dimension, 0.1);
+
 //--------------------------------------------------------------------------------------------------
 // OpenGL Shaders and Uniforms
 //--------------------------------------------------------------------------------------------------
@@ -121,6 +154,19 @@ void run(const std::vector<std::string>& args) {
 	Camera main_camera;
 	main_camera.arm_length = 4.0f;
 	main_camera.rise = -1.0f;
+	main_camera.root_position = core::vec3(grid_dimension/4,grid_dimension/4,grid_dimension/4);
+
+	Shader shader_box;
+	GLuint shader_box_proj_view = 0;
+	core::mat4 scaling_matrix = core::create4(
+		grid_dimension / 2, 0,                  0,                  0,
+		0,                  grid_dimension / 2, 0,                  0,
+		0,                  0,                  grid_dimension / 2, 0,
+		0,                  0,                  0,                  1 );
+
+	createBoxShader(shader_box);
+	glUseProgram(shader_box);
+	shader_box_proj_view = glGetUniformLocation(shader_box, "u_projection_view");
 
 	Shader shader_flat;
 	GLuint shader_proj_view = 0;
@@ -138,17 +184,12 @@ void run(const std::vector<std::string>& args) {
 		throw "Got OpenGL Error during Setup!";
 
 //--------------------------------------------------------------------------------------------------
-// MAKE A FANCY, FANCY PARTICLE GRID!!!
-//--------------------------------------------------------------------------------------------------
-
-	grid sim(20,20,20, 0.5);
-
-//--------------------------------------------------------------------------------------------------
 // MAIN LOOP
 //--------------------------------------------------------------------------------------------------
 	double _current_time = glfwGetTime();
 	double _delta_time = 0.016;
 	double _fps = 0.0f;
+	unsigned int _frame_count = 1;
 
 	while (!glfwWindowShouldClose(mainWindow))
 	{
@@ -157,7 +198,7 @@ void run(const std::vector<std::string>& args) {
 	// CUDA Segment
 	//----------------------------------------------------------------------------------------------
 		
-		runCUDASimulation(sim, 0.01);
+		runCUDASimulation(sim, 0.016, _frame_count);
 
 	//----------------------------------------------------------------------------------------------
 	// OpenGL Segment
@@ -181,16 +222,36 @@ void run(const std::vector<std::string>& args) {
 			else if ( GlobalData::yScroll > 0 )
 				main_camera.arm_length = std::max(2.0f, main_camera.arm_length * (float)std::pow(0.9f, GlobalData::yScroll));
 
+			glViewport(0, 0, width, height);
+			glClearColor(0,0,0,1);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+			// --- DRAW BOX ---------------------------------------------------
+			glUseProgram(shader_box);
+
+			{
+				core::mat4 data;
+				main_camera.fillMatrix((float)width/height, data);
+				data = data * scaling_matrix;
+				glUniformMatrix4fv(shader_box_proj_view, 1, false, (float*)&data);
+			}
+
+			glBindBuffer(GL_ARRAY_BUFFER, draw_cube_buffer);
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+			glDrawArrays(GL_LINES, 0, sizeof(data) / (2*sizeof(float)));
+
+			// --- DRAW PARTICLES ---------------------------------------------
+			glUseProgram(shader_flat);
+
 			{
 				core::mat4 data;
 				main_camera.fillMatrix((float)width/height, data);
 				glUniformMatrix4fv(shader_proj_view, 1, false, (float*)&data);
-				glUniform3f(shader_light_direc, 0,1,0);
 			}
 
-			glViewport(0, 0, width, height);
-			glClearColor(1,0,0,1);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+			glUniform3f(shader_light_direc, 0,1,0);
 
 			glBindBuffer(GL_ARRAY_BUFFER, array_buffer);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
@@ -214,6 +275,11 @@ void run(const std::vector<std::string>& args) {
 				glDrawElementsInstanced(GL_TRIANGLES, 3 * draw_face_count, GL_UNSIGNED_BYTE, 0, draw_remainder);	
 			}
 
+			glDisableVertexAttribArray(0);
+			glDisableVertexAttribArray(1);
+			glDisableVertexAttribArray(2);
+			glDisableVertexAttribArray(3);
+
 			glFinish();
 		}
 
@@ -230,7 +296,11 @@ void run(const std::vector<std::string>& args) {
 			_delta_time = ct - _current_time;
 			_current_time = ct;
 			_fps = 0.9 * _fps + 0.1 * (1.0 / _delta_time);
+
+			Sleep(1000);
 		}
+
+		_frame_count ++ ;
 
 	}
 }
@@ -247,6 +317,24 @@ int main(int argv, char** argc) {
 	return 0;
 }
 
+void createBoxShader(Shader& shad) {
+	shad.vertex =
+		"#version 330\r\n"
+		"uniform mat4 u_projection_view;"
+		"in vec3 in_position;"
+		"void main() {"
+		"   gl_Position = u_projection_view * vec4(in_position, 1);"
+		"}";
+		
+	shad.fragment =
+		"#version 330\r\n"
+		"out vec4 out_color;"
+		"void main() {"
+		"	out_color = vec4(1,1,1,1);"
+		"}";
+
+	shad.link();
+}
 void createFlatShader(Shader& shad) {
 	shad.vertex =
 		"#version 330\r\n"

@@ -11,7 +11,7 @@ namespace Fluids {
 	public: 
 
 		//CONSTRUCTORS
-		particle() {		
+		CUDA_SHARED_FUNCTION particle() {		
 			_velocity = core::vec3(0.0,0.0,0.0); //0
 			_force = core::vec3(0.0,-9.80665,0.0); //gravity only
 			_density = 0.0;

@@ -7,8 +7,8 @@
 #include "cuda_uniform_buffer.hpp"
 
 #define GRAVITATIONAL_ACCELERATION -9.80665 //m/s^2
-#define CONST_H 5.0 //between 0 and 0.5 //.0457
-#define CONST_MASS 50.0
+#define CONST_H 2.0 //between 0 and 0.5 //.0457
+#define CONST_MASS 1.0
 #define GAS_CONSTANT 3.0 
 #define CONST_REST_DENSITY 998.29 //kg/m^3
 #define CONST_VISCOSITY 3.5
@@ -24,12 +24,12 @@ namespace Fluids {
 		
 		public: 
 
-			cell () { for (int i = 0; i < 8; _my_particles [i] = -1, i++); }
-			cell (core::vec3 start) : _start(start) { for (int i = 0; i < 8; _my_particles [i] = -1, i++); }
+			CUDA_SHARED_FUNCTION cell () { for (int i = 0; i < 8; _my_particles [i] = -1, i++); }
+			CUDA_SHARED_FUNCTION cell (core::vec3 start) : _start(start) { for (int i = 0; i < 8; _my_particles [i] = -1, i++); }
 
 			CUDA_SHARED_FUNCTION void setStart ( float x, float y, float z ) { _start = core::vec3(x,y,z); }
-			CUDA_SHARED_FUNCTION void addParticle ( int p );
-			CUDA_SHARED_FUNCTION void removeParticle ( int p);
+			CUDA_SHARED_FUNCTION bool addParticle ( int p );
+			CUDA_SHARED_FUNCTION bool removeParticle ( int p);
 			
 			CUDA_SHARED_FUNCTION const core::vec3& getStart () const { return _start; }
 			CUDA_SHARED_FUNCTION int getParticle (int index) const { return _my_particles[index]; }
@@ -97,7 +97,7 @@ namespace Fluids {
 	__global__ void calculatePressure(grid::device_data&);
 	__global__ void calculateForces(grid::device_data&);
 	__global__ void integrate(grid::device_data&, double dt);
-	void runCUDASimulation(grid&, double dt);
+	void runCUDASimulation(grid&, double dt, unsigned int frame);
 }
 
 #endif

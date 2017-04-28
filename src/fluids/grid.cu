@@ -4,6 +4,24 @@
 
 namespace Fluids {
 
+	__global__ void configureInitialSettings(grid::device_data& data) {
+		int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+		int z = i / (data.dimensions.x * data.dimensions.y);
+		int y = (i % (data.dimensions.x * data.dimensions.y)) / data.dimensions.x;
+		int x = (i % (data.dimensions.x * data.dimensions.y)) % data.dimensions.x;
+
+		printf("%d => %d %d %d\r\n", i, x, y, z);
+
+		if ( i < data.particle_count ) {
+			data.positions[i] = core::vec4(x,y,z,1.0);
+			data.cells[i] = grid::cell(core::vec3(x,y,z));
+			data.particles[i] = particle();
+
+			data.particles[i].assignCell(i);
+			data.cells[i].addParticle(i);
+		}
+	}
 	__global__ void calculatePressure(grid::device_data& data) {
 		int i = blockIdx.x * blockDim.x + threadIdx.x;
 		if ( i < data.particle_count )
@@ -20,7 +38,7 @@ namespace Fluids {
 			grid::integrate(data, i, dt);	
 	}
 
-	void runCUDASimulation(grid& sim, double dt) {
+	void runCUDASimulation(grid& sim, double dt, unsigned int frame) {
 		//std::cerr << "------------------------------------------------------------" << std::endl;
 
 		core::vec4* positions = sim.bindPositions();
@@ -33,9 +51,11 @@ namespace Fluids {
 		int block_count = data.particle_count/THREAD_COUNT + ((data.particle_count%THREAD_COUNT > 0)?1:0);
 		int thread_count = std::min(data.particle_count, THREAD_COUNT);
 
-		std::cerr << "BLOCK COUNT " << block_count << std::endl;
-		std::cerr << "THREAD COUNT " << thread_count << std::endl;
-		std::cerr << "PARTICLE COUNT " << data.particle_count << std::endl;
+		std::cerr << "--- FRAME " << frame << " ---------------------------------------------" << std::endl;
+
+		//std::cerr << "BLOCK COUNT " << block_count << std::endl;
+		//std::cerr << "THREAD COUNT " << thread_count << std::endl;
+		//std::cerr << "PARTICLE COUNT " << data.particle_count << std::endl;
 
 		calculatePressure<<<block_count,thread_count>>>( sim.getUploadedData() );
 		checkCUDAResult();
@@ -60,22 +80,46 @@ namespace Fluids {
 		checkCUDAReturn( cudaDeviceSynchronize() );
 	}
 
-	CUDA_SHARED_FUNCTION void grid::cell::addParticle ( int p ) {
+	CUDA_SHARED_FUNCTION bool grid::cell::addParticle ( int p ) {
+		/*printf("add %d to %d %d %d %d %d %d %d %d\r\n",
+			p,
+			_my_particles[0],
+			_my_particles[1],
+			_my_particles[2],
+			_my_particles[3],
+			_my_particles[4],
+			_my_particles[5],
+			_my_particles[6],
+			_my_particles[7]);*/
 		for (int i = 0; i < 8; i++) {
 			if ( _my_particles[i] == -1 ) {
 				_my_particles[i] = p;
-				return;
+				return true;
 			}
 		}
+		//printf("FAILED TO ADD NEW PARTICLE\r\n");
+		return false;
 	}
 
-	CUDA_SHARED_FUNCTION void grid::cell::removeParticle ( int p ) {
+	CUDA_SHARED_FUNCTION bool grid::cell::removeParticle ( int p ) {
+		/*printf("remove %d from %d %d %d %d %d %d %d %d\r\n",
+			p,
+			_my_particles[0],
+			_my_particles[1],
+			_my_particles[2],
+			_my_particles[3],
+			_my_particles[4],
+			_my_particles[5],
+			_my_particles[6],
+			_my_particles[7]);*/
 		for (int i = 0; i < 8; i++) {
 			if ( _my_particles[i] == p ) {
 				_my_particles[i] = -1;
-				return;
+				return true;
 			}
 		}
+		//printf("FAILED TO REMOVE OLD PARTICLE\r\n");
+		return false;
 	}
 
 
@@ -88,7 +132,7 @@ namespace Fluids {
 
 		int volume = length*width*depth;
 
-		cell* cells = new cell [volume];
+		/*cell* cells = new cell [volume];
 		particle* particles = new particle [volume];
 		core::vec4* positions = new core::vec4 [volume];
 
@@ -123,11 +167,27 @@ namespace Fluids {
 
 		glBindBuffer(GL_COPY_WRITE_BUFFER, _positions.handleGL());
 		glBufferSubData(GL_COPY_WRITE_BUFFER, 0, sizeof(core::vec4) * volume, (void*)positions);
+		glBindBuffer(GL_COPY_WRITE_BUFFER, 0);*/
+
+		_particle_count = filled * volume;
+
+		glBindBuffer(GL_COPY_WRITE_BUFFER, _positions.handleGL());
+		glBufferSubData(GL_COPY_WRITE_BUFFER, 0, sizeof(core::vec4) * volume, NULL);
 		glBindBuffer(GL_COPY_WRITE_BUFFER, 0);
-		
-		delete[] cells;
-		delete[] particles;
-		delete[] positions;
+
+		grid::device_data data(*this, bindPositions());
+		uploadData(data);
+
+		int block_count = data.particle_count/THREAD_COUNT + ((data.particle_count%THREAD_COUNT > 0)?1:0);
+		int thread_count = std::min(data.particle_count, THREAD_COUNT);
+
+		configureInitialSettings<<<block_count,thread_count>>>( getUploadedData() );
+		checkCUDAResult();
+		checkCUDAReturn( cudaDeviceSynchronize() );
+
+		unbindPositions();
+		checkCUDAResult();
+		checkCUDAReturn( cudaDeviceSynchronize() );
 
 		checkCUDAReturn( cudaDeviceSynchronize() );
 	}
@@ -151,7 +211,7 @@ namespace Fluids {
 			pos.y = -pos.y;
 			vel.y = -vel.y * 0.9f;
 		} else if (pos.y > data.dimensions.y) {
-			pos.y = 2*data.dimensions.y - pos.x;
+			pos.y = 2*data.dimensions.y - pos.y;
 			vel.y = -vel.y * 0.9f;
 		}
 
@@ -159,7 +219,7 @@ namespace Fluids {
 			pos.z = -pos.z;
 			vel.z = -vel.z * 0.9f;
 		} else if (pos.z > data.dimensions.z) {
-			pos.z = 2*data.dimensions.z - pos.x;
+			pos.z = 2*data.dimensions.z - pos.z;
 			vel.z = -vel.z * 0.9f;
 		}
 
@@ -173,20 +233,51 @@ namespace Fluids {
 		particle& p = data.particles[i];
 		core::vec4& pos = data.positions[i];
 		int cindex = p.getCellIndex();
+		int orig_cindex = cindex;
 		const core::vec3& start = data.cells[cindex].getStart();
-		data.cells[cindex].removeParticle(i);
 
 		if (pos.x < start.x) 			cindex--;
-		else if (pos.x >= start.x+1) 	cindex++;
+		else if (pos.x >= start.x+1.0f) cindex++;
+		
 		if (pos.y < start.y) 			cindex-=data.dimensions.x;
-		else if (pos.y >= start.y+1) 	cindex+=data.dimensions.x;
+		else if (pos.y >= start.y+1.0f) cindex+=data.dimensions.x;
+		
 		if (pos.z < start.z) 			cindex-=data.dimensions.x*data.dimensions.y;
-		else if (pos.z >= start.z+1) 	cindex+=data.dimensions.x*data.dimensions.y;
+		else if (pos.z >= start.z+1.0f) cindex+=data.dimensions.x*data.dimensions.y;
+
+		int vol = data.dimensions.x*data.dimensions.y*data.dimensions.z;
+		if ( cindex < 0 || cindex > vol )
+			printf("%d (%d) :: (%f %f %f) should be between (%f %f %f) and (%f %f %f) :: Got invalid cindex %d / %d\r\n", 
+				i, orig_cindex, pos.x, pos.y, pos.z, start.x, start.y, start.z, start.x+1, start.y+1, start.z+1, cindex, vol);
 
 		//printf("Reassign particle %d from cell %d to cell %d\r\n", i, p.getCellIndex(), cindex);
-		data.cells[cindex].addParticle(i);
-		p.assignCell(cindex);
-
+		if ( cindex != orig_cindex ) {
+			printf("attempt to put %d from %d into %d\r\n", i, orig_cindex, cindex);
+			if ( !data.cells[orig_cindex].removeParticle(i) )
+				printf("cannot remove particle %d from %d\r\n", i, orig_cindex);
+			if ( !data.cells[cindex].addParticle(i) )
+				printf("cannot add particle %d from %d\r\n", i, cindex);
+			printf("result %d = [%d %d %d %d %d %d %d %d] | %d = [%d %d %d %d %d %d %d %d]\r\n", 
+				orig_cindex,
+				data.cells[orig_cindex].getParticle(0),
+				data.cells[orig_cindex].getParticle(1),
+				data.cells[orig_cindex].getParticle(2),
+				data.cells[orig_cindex].getParticle(3),
+				data.cells[orig_cindex].getParticle(4),
+				data.cells[orig_cindex].getParticle(5),
+				data.cells[orig_cindex].getParticle(6),
+				data.cells[orig_cindex].getParticle(7),
+				cindex,
+				data.cells[cindex].getParticle(0),
+				data.cells[cindex].getParticle(1),
+				data.cells[cindex].getParticle(2),
+				data.cells[cindex].getParticle(3),
+				data.cells[cindex].getParticle(4),
+				data.cells[cindex].getParticle(5),
+				data.cells[cindex].getParticle(6),
+				data.cells[cindex].getParticle(7));
+			p.assignCell(cindex);
+		}
 	}
 
 
@@ -255,8 +346,8 @@ namespace Fluids {
 		data.positions[i] = core::vec4(newPosition.x, newPosition.y, newPosition.z, 1.0f);
 		p.setVelocity( (data.positions[i] - oldPosition).xyz() / dt );
 
-		//wallCollision(data, i);
-		//reassignParticle(data, i);
+		wallCollision(data, i);
+		reassignParticle(data, i);
 
 		/*printf("NEXT %d: (%f %f %f) => (%f %f %f), velocity(%f %f %f), force(%f %f %f), acceleration(%f %f %f), density(%f)\r\n", 
 			i,
@@ -453,8 +544,8 @@ namespace Fluids {
 			fSurface.x, fSurface.y, fSurface.z,
 			fGravity.x, fGravity.y, fGravity.z);*/
 
-		//p.setForce(fPressure + fSurface + fViscosity + fGravity);
-		p.setForce(fPressure + fSurface + fViscosity);
+		p.setForce(fPressure + fSurface + fViscosity + fGravity);
+		//p.setForce(fPressure + fSurface + fViscosity);
 	}
 
 }

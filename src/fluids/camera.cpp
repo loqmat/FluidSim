@@ -13,7 +13,7 @@ namespace Fluids {
 		core::mat3 mat_angle = core::toMatrix(core::axisangle_t(angle, core::vec3(0,1,0)));
 		core::mat3 mat_rise = core::toMatrix(core::axisangle_t(rise, core::vec3(1,0,0)));
 		core::mat4 combine = expand4(mat_rise * mat_angle);
-		core::mat4 move = core::translate4( -core::vec3(0,0,arm_length) ) * combine;
+		core::mat4 move = core::translate4( -core::vec3(0,0,arm_length) ) * combine * core::translate4(-root_position);
 		output = proj * move;
 	}
 
