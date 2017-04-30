@@ -32,25 +32,29 @@ namespace Fluids {
 		*i = x  + y * dimx + z * dimx * dimy;
 	}
 
+	CUDA_DEVICE_FUNCTION inline float4 cuDot4 (const float4& vA, const float4& vB) {
+		return make_float4(vA.x * vB.x, vA.y * vB.y, vA.z * vB.z, vA.w * vB.w);
+	}
+
 	CUDA_DEVICE_FUNCTION inline float4 operator* (const float4& v, float s) {
-		return make_float4(v.x * s, v.y * s, v.z * s, v.w * s)
+		return make_float4(v.x * s, v.y * s, v.z * s, v.w * s);
 	}
 	CUDA_DEVICE_FUNCTION inline float4 operator* (float s, const float4& v) {
-		return make_float4(v.x * s, v.y * s, v.z * s, v.w * s)
+		return make_float4(v.x * s, v.y * s, v.z * s, v.w * s);
 	}
 
 	CUDA_DEVICE_FUNCTION inline float4 operator/ (const float4& v, float s) {
-		return make_float4(v.x / s, v.y / s, v.z / s, v.w / s)
+		return make_float4(v.x / s, v.y / s, v.z / s, v.w / s);
 	}
 	CUDA_DEVICE_FUNCTION inline float4 operator/ (float s, const float4& v) {
-		return make_float4(v.x / s, v.y / s, v.z / s, v.w / s)
+		return make_float4(v.x / s, v.y / s, v.z / s, v.w / s);
 	}
 
 	CUDA_DEVICE_FUNCTION inline float4 operator+ (const float4& vA, const float4& vB) {
-		return make_float4(vA.x + vB.x, vA.y + vB.y, vA.z + vB.z, vA.w + vB.w)
+		return make_float4(vA.x + vB.x, vA.y + vB.y, vA.z + vB.z, vA.w + vB.w);
 	}
 	CUDA_DEVICE_FUNCTION inline float4 operator- (const float4& vA, const float4& vB) {
-		return make_float4(vA.x - vB.x, vA.y - vB.y, vA.z - vB.z, vA.w - vB.w)
+		return make_float4(vA.x - vB.x, vA.y - vB.y, vA.z - vB.z, vA.w - vB.w);
 	}
 
 }
