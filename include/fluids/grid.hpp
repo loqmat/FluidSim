@@ -5,15 +5,17 @@
 #include "core/vector.hpp"
 #include "cuda_buffer.hpp"
 #include "cuda_uniform_buffer.hpp"
+#include "simulation_defs.hpp"
 
-#define GRAVITATIONAL_ACCELERATION -9.80665 //m/s^2
-#define CONST_H 2.0 //between 0 and 0.5 //.0457
+#define GRAVITATIONAL_ACCELERATION 9.80665 //m/s^2
+#define CONST_H 1.2 //between 0 and 0.5 //.0457
 #define CONST_MASS 1.0
-#define GAS_CONSTANT 3.0 
-#define CONST_REST_DENSITY 998.29 //kg/m^3
+#define GAS_CONSTANT 461.5
+#define CONST_REST_DENSITY .99829 //kg/m^3
 #define CONST_VISCOSITY 3.5
 #define CONST_SURFACE_TENSION_FORCE_THRESHOLD 7.065
 #define CONST_SURFACE_TENSION 0.0728
+#define CONST_SURFACE_PARTICLE_THRESHOLD 1.0
 
 namespace Fluids {
 	class grid {
@@ -68,6 +70,8 @@ namespace Fluids {
 		void uploadData(device_data& data) { _device_data.upload(&data); }
 		device_data& getUploadedData() { return *((device_data*)_device_data); }
 
+		const core::vec3i& getDimensions() const { return _dimensions; }
+
 		CUDA_DEVICE_FUNCTION static void wallCollision( device_data&, int i );
 		CUDA_DEVICE_FUNCTION static void reassignParticle( device_data&, int i );
 
@@ -87,9 +91,12 @@ namespace Fluids {
 		CUDABuffer<device_data> _device_data;
 
 		core::vec3i _dimensions;
+		
 		CUDABuffer<cell> _cells;
+
 		CUDABuffer<particle> _particles;
 		UniformBuffer<core::vec4> _positions;
+		
 		int _particle_count;
 
 	};
@@ -97,7 +104,7 @@ namespace Fluids {
 	__global__ void calculatePressure(grid::device_data&);
 	__global__ void calculateForces(grid::device_data&);
 	__global__ void integrate(grid::device_data&, double dt);
-	void runCUDASimulation(grid&, double dt, unsigned int frame);
+	void runCUDASimulation(grid&, MarchingCubes&, double dt, unsigned int frame);
 }
 
 #endif

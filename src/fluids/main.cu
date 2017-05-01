@@ -1,4 +1,5 @@
 #include "fluids/grid.hpp"
+#include "fluids/marching_cubes.hpp"
 #include "fluids/cuda_setup.hpp"
 #include "fluids/setup.hpp"
 #include "fluids/graphics.hpp"
@@ -7,7 +8,7 @@
 #include "fluids/cuda_uniform_buffer.hpp"
 #include "fluids/gen_sphere.hpp"
 
-#include <windows.h>
+//#include <windows.h>
 #include <vector>
 #include <iostream>
 
@@ -31,7 +32,10 @@ struct GlobalData {
 	static double xScroll;
 	static double yScroll;
 
-	static void UpdateMouse() {
+	static bool escapePressed;
+	static bool spacePressed;
+
+	static void UpdateGlobalData() {
 		xDeltaPosition = xPosition - xOldPosition;
 		xOldPosition = xPosition;
 
@@ -40,10 +44,15 @@ struct GlobalData {
 
 		xScroll = 0.0;
 		yScroll = 0.0;
+
+		escapePressed = false;
+		spacePressed = false;
 	}
 };
 
 bool GlobalData::rightMousePressed = false;
+bool GlobalData::escapePressed = false;
+bool GlobalData::spacePressed = false;
 double GlobalData::xPosition = 0;
 double GlobalData::yPosition = 0;
 double GlobalData::xOldPosition = 0;
@@ -70,6 +79,13 @@ void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 	GlobalData::xScroll = xoffset;
 	GlobalData::yScroll = yoffset;
 }
+void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+        GlobalData::spacePressed = true;
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        GlobalData::escapePressed = true;
+}
 
 void run(const std::vector<std::string>& args) {
 //--------------------------------------------------------------------------------------------------
@@ -87,10 +103,21 @@ void run(const std::vector<std::string>& args) {
 	glfwSetCursorPosCallback(mainWindow, mousePositionCallback);
 	glfwSetMouseButtonCallback(mainWindow, mouseButtonCallback);
 	glfwSetScrollCallback(mainWindow, mouseScrollCallback);
+	glfwSetKeyCallback(mainWindow, keyboardCallback);
 
 	CUDA cuda;
 	cuda.Setup();
 	cuda.GLSetup();
+
+	glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);
+	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+
+	glEnable(GL_POINT_SMOOTH);
+	glEnable(GL_LINE_SMOOTH);
+	glEnable(GL_POLYGON_SMOOTH);
+
+	glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
 
 //--------------------------------------------------------------------------------------------------
 // Discover Rendering Restrictions
@@ -144,8 +171,12 @@ void run(const std::vector<std::string>& args) {
 // MAKE A FANCY, FANCY PARTICLE GRID!!!
 //--------------------------------------------------------------------------------------------------
 
-	float grid_dimension = 10;
-	grid sim(grid_dimension, grid_dimension, grid_dimension, 0.1);
+	int cubes_dimension = 1;
+	float grid_dimension = 3;
+
+	MarchingCubes cubes(cubes_dimension, cubes_dimension, cubes_dimension,
+						core::vec3i(grid_dimension,grid_dimension,grid_dimension));
+	grid sim(grid_dimension, grid_dimension, grid_dimension, 1.0);
 
 //--------------------------------------------------------------------------------------------------
 // OpenGL Shaders and Uniforms
@@ -159,10 +190,10 @@ void run(const std::vector<std::string>& args) {
 	Shader shader_box;
 	GLuint shader_box_proj_view = 0;
 	core::mat4 scaling_matrix = core::create4(
-		grid_dimension / 2, 0,                  0,                  0,
-		0,                  grid_dimension / 2, 0,                  0,
-		0,                  0,                  grid_dimension / 2, 0,
-		0,                  0,                  0,                  1 );
+		grid_dimension, 0,                  0,                  0,
+		0,                  grid_dimension, 0,                  0,
+		0,                  0,                  grid_dimension, 0,
+		0,                  0,                  0,              1 );
 
 	createBoxShader(shader_box);
 	glUseProgram(shader_box);
@@ -190,15 +221,22 @@ void run(const std::vector<std::string>& args) {
 	double _delta_time = 0.016;
 	double _fps = 0.0f;
 	unsigned int _frame_count = 1;
+	bool _draw_particles = true;
 
 	while (!glfwWindowShouldClose(mainWindow))
 	{
+		if ( GlobalData::spacePressed )
+			_draw_particles = !_draw_particles;
+		if ( GlobalData::escapePressed )
+			glfwSetWindowShouldClose(mainWindow, GLFW_TRUE);
 
 	//----------------------------------------------------------------------------------------------
 	// CUDA Segment
 	//----------------------------------------------------------------------------------------------
 		
-		runCUDASimulation(sim, 0.016, _frame_count);
+		runCUDASimulation(sim, cubes, 0.1f * _delta_time, _frame_count);
+
+		std::cerr << "face count " << cubes.getFaceCount() << std::endl;
 
 	//----------------------------------------------------------------------------------------------
 	// OpenGL Segment
@@ -232,7 +270,7 @@ void run(const std::vector<std::string>& args) {
 			{
 				core::mat4 data;
 				main_camera.fillMatrix((float)width/height, data);
-				data = data * scaling_matrix;
+				//data = data * scaling_matrix;
 				glUniformMatrix4fv(shader_box_proj_view, 1, false, (float*)&data);
 			}
 
@@ -243,42 +281,61 @@ void run(const std::vector<std::string>& args) {
 			glDrawArrays(GL_LINES, 0, sizeof(data) / (2*sizeof(float)));
 
 			// --- DRAW PARTICLES ---------------------------------------------
-			glUseProgram(shader_flat);
+			if ( _draw_particles ) {
 
-			{
-				core::mat4 data;
-				main_camera.fillMatrix((float)width/height, data);
-				glUniformMatrix4fv(shader_proj_view, 1, false, (float*)&data);
+				glUseProgram(shader_flat);
+
+				{
+					core::mat4 data;
+					main_camera.fillMatrix((float)width/height, data);
+					glUniformMatrix4fv(shader_proj_view, 1, false, (float*)&data);
+				}
+
+				glUniform3f(shader_light_direc, 0,1,0);
+
+				glBindBuffer(GL_ARRAY_BUFFER, array_buffer);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
+
+				glEnableVertexAttribArray(0);
+				glEnableVertexAttribArray(1);
+				glEnableVertexAttribArray(2);
+				glEnableVertexAttribArray(3);
+
+				glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 0));
+				glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 3));
+				glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 6));
+				glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 8));
+
+				for ( int iteration=0; iteration<draw_iterations; iteration++ ) {
+					sim.getUniformBuffer().bindGL(0, iteration * max_uniform_buffer_range, max_uniform_buffer_range);
+					glDrawElementsInstanced(GL_TRIANGLES, 3 * draw_face_count, GL_UNSIGNED_BYTE, 0, max_uniform_buffer_units);
+				}
+				if ( draw_remainder > 0 ) {
+					sim.getUniformBuffer().bindGL(0, draw_iterations * max_uniform_buffer_range, draw_remainder);
+					glDrawElementsInstanced(GL_TRIANGLES, 3 * draw_face_count, GL_UNSIGNED_BYTE, 0, draw_remainder);	
+				}
+
+				glDisableVertexAttribArray(0);
+				glDisableVertexAttribArray(1);
+				glDisableVertexAttribArray(2);
+				glDisableVertexAttribArray(3);
+
+			} else {
+
+				glUseProgram(shader_box);
+				{
+					core::mat4 data;
+					main_camera.fillMatrix((float)width/height, data);
+					glUniformMatrix4fv(shader_box_proj_view, 1, false, (float*)&data);
+				}
+
+				cubes.bindGL();
+				glEnableVertexAttribArray(0);
+				glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+				glDrawElements(GL_POINTS, cubes.getFaceCount(), GL_UNSIGNED_INT, 0);
+
 			}
-
-			glUniform3f(shader_light_direc, 0,1,0);
-
-			glBindBuffer(GL_ARRAY_BUFFER, array_buffer);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
-
-			glEnableVertexAttribArray(0);
-			glEnableVertexAttribArray(1);
-			glEnableVertexAttribArray(2);
-			glEnableVertexAttribArray(3);
-
-			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 0));
-			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 3));
-			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 6));
-			glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, (void*)(std::size_t)(draw_vertex_count * sizeof(float) * 8));
-
-			for ( int iteration=0;iteration<draw_iterations;iteration++ ) {
-				sim.getUniformBuffer().bindGL(0, iteration * max_uniform_buffer_range, max_uniform_buffer_range);
-				glDrawElementsInstanced(GL_TRIANGLES, 3 * draw_face_count, GL_UNSIGNED_BYTE, 0, max_uniform_buffer_units);
-			}
-			if ( draw_remainder > 0 ) {
-				sim.getUniformBuffer().bindGL(0, draw_iterations * max_uniform_buffer_range, draw_remainder);
-				glDrawElementsInstanced(GL_TRIANGLES, 3 * draw_face_count, GL_UNSIGNED_BYTE, 0, draw_remainder);	
-			}
-
-			glDisableVertexAttribArray(0);
-			glDisableVertexAttribArray(1);
-			glDisableVertexAttribArray(2);
-			glDisableVertexAttribArray(3);
 
 			glFinish();
 		}
@@ -288,7 +345,7 @@ void run(const std::vector<std::string>& args) {
 	//----------------------------------------------------------------------------------------------
 		{
 			glfwSwapBuffers(mainWindow);
-			GlobalData::UpdateMouse();
+			GlobalData::UpdateGlobalData();
 			glfwPollEvents();
 
 			double ct = glfwGetTime();
@@ -297,7 +354,7 @@ void run(const std::vector<std::string>& args) {
 			_current_time = ct;
 			_fps = 0.9 * _fps + 0.1 * (1.0 / _delta_time);
 
-			Sleep(1000);
+			//Sleep(1000);
 		}
 
 		_frame_count ++ ;
@@ -324,6 +381,7 @@ void createBoxShader(Shader& shad) {
 		"in vec3 in_position;"
 		"void main() {"
 		"   gl_Position = u_projection_view * vec4(in_position, 1);"
+		"	gl_PointSize = 8.0;"
 		"}";
 		
 	shad.fragment =

@@ -20,6 +20,7 @@ namespace Fluids {
 	void InitGLEW::initialize() const {
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
 	}
 
 	Window::Window(const char* name, int x, int y) : _window(glfwCreateWindow(x, y, name, NULL, NULL)) {

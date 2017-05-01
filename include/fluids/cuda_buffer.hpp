@@ -16,12 +16,11 @@ namespace Fluids {
 		T* _internal;
 		
 	public:
-		CUDABuffer(std::size_t size ) :
+		CUDABuffer(std::size_t size) :
 			_byte_size(size * sizeof(T)),
 			_internal(NULL) {
-			std::cerr << "MOO" << std::endl;
+			std::cerr << "create buffer of size " << _byte_size << std::endl;
 			checkCUDAReturn( cudaMalloc((void**)&_internal, _byte_size) );
-			std::cerr << "MOO" << std::endl;
 		}
 		~CUDABuffer() {
 			checkCUDAReturn( cudaFree((void**)&_internal) );

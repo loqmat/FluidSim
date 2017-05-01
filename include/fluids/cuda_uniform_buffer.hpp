@@ -29,20 +29,18 @@ namespace Fluids {
 	public:
 
 		UniformBuffer(std::size_t size) :
-			_byte_size(size) {
+			_byte_size(size * sizeof(T)) {
 
-			std::cerr << "MOOoooOOO" << std::endl;
+			std::cerr << "create buffer of size " << _byte_size << std::endl;
 
 			glGenBuffers(1, &_gl_buffer);
 			glBindBuffer(GL_UNIFORM_BUFFER, _gl_buffer);
-			glBufferData(GL_UNIFORM_BUFFER, _byte_size * sizeof(T), NULL, GL_DYNAMIC_DRAW);
+			glBufferData(GL_UNIFORM_BUFFER, _byte_size, NULL, GL_DYNAMIC_DRAW);
 			glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 			checkCUDAReturn( cudaStreamCreateWithFlags(&_cuda_stream, cudaStreamDefault) );
 			checkCUDAReturn( cudaGraphicsGLRegisterBuffer(&_cuda_resource, _gl_buffer, cudaGraphicsRegisterFlagsNone) );
 			checkCUDAReturn( cudaDeviceSynchronize() );
-
-			std::cerr << "MOOoooOOO" << std::endl;
 		}
 		~UniformBuffer() {
 			glDeleteBuffers(1, &_gl_buffer);
