@@ -1,7 +1,8 @@
 #ifndef GRID_HPP
 #define GRID_HPP
 
-#include "particle.hpp"
+#include <thrust/device_vector.h>
+
 #include "core/vector.hpp"
 #include "cuda_buffer.hpp"
 #include "cuda_uniform_buffer.hpp"
@@ -10,7 +11,7 @@
 #define GRAVITATIONAL_ACCELERATION 9.80665 //m/s^2
 #define CONST_H 1.2 //between 0 and 0.5 //.0457
 #define CONST_MASS 1.0
-#define GAS_CONSTANT 46.15
+#define GAS_CONSTANT 461.5
 #define CONST_REST_DENSITY .99829 //kg/m^3
 #define CONST_VISCOSITY 1.5
 #define CONST_SURFACE_TENSION_FORCE_THRESHOLD 7.065
@@ -19,70 +20,68 @@
 
 namespace Fluids {
 	class grid {
-
 	public:
-
-		class cell {
-		
-		public: 
-
-			CUDA_SHARED_FUNCTION cell () { for (int i = 0; i < 8; _my_particles [i] = -1, i++); }
-			CUDA_SHARED_FUNCTION cell (core::vec3 start) : _start(start) { for (int i = 0; i < 8; _my_particles [i] = -1, i++); }
-
-			CUDA_SHARED_FUNCTION void setStart ( float x, float y, float z ) { _start = core::vec3(x,y,z); }
-			CUDA_SHARED_FUNCTION bool addParticle ( int p );
-			CUDA_SHARED_FUNCTION bool removeParticle ( int p);
-			
-			CUDA_SHARED_FUNCTION const core::vec3& getStart () const { return _start; }
-			CUDA_SHARED_FUNCTION int getParticle (int index) const { return _my_particles[index]; }
-
-		private:
-
-			core::vec3 _start;
-			int _my_particles[8];
-		
-		};
 
 		class device_data {
 		public:
-			core::vec3i dimensions;
-			cell* cells;
-			particle* particles;
-			core::vec4* positions;
-			core::vec3* color_field;
+			int4 dimensions;
 			int particle_count;
+			int* cell_count;
+			int* cell_offset;
+			int* sorted_cell_id;
+			int* cell_index;
+			float4* velocity;
+			float4* force;
+			float* density;
+			float* pressure;
+			int* sorted_particle_id;
+			float4* positions;
+			float4* color_field;
 
-			device_data(grid& g, core::vec4* pos) :
-				dimensions(g._dimensions),
-				cells(g._cells),
-				particles(g._particles),
+			device_data(grid& g, float4* pos) :
 				positions(pos),
+				dimensions(g._dimensions),
 				particle_count(g._particle_count),
-				color_field(g._color_field) { ; }
+				cell_count(thrust::raw_pointer_cast(g._cell_count.data())),
+				cell_offset(thrust::raw_pointer_cast(g._cell_offset.data())),
+				sorted_cell_id(thrust::raw_pointer_cast(g._sorted_cell_id.data())),
+				cell_index(thrust::raw_pointer_cast(g._cell_index.data())),
+				velocity(thrust::raw_pointer_cast(g._velocity.data())),
+				force(thrust::raw_pointer_cast(g._force.data())),
+				density(thrust::raw_pointer_cast(g._density.data())),
+				pressure(thrust::raw_pointer_cast(g._pressure.data())),
+				sorted_particle_id(thrust::raw_pointer_cast(g._sorted_particle_id.data())),
+				color_field(thrust::raw_pointer_cast(g._color_field.data())) { ; }
 		};
 
 		grid(int length, int width, int depth, int count);
-		//particle* addParticle(vec4 position);
 
 		int getParticleCount () { return _particle_count; }
-		core::vec4* bindPositions() { return _positions.bindCUDA(); }
+		int getVolume () { return _dimensions.x*_dimensions.y*_dimensions.z; }
+
+		thrust::device_vector<int>& sortedCellID () { return _sorted_cell_id; }
+		thrust::device_vector<int>& sortedParticleID () { return _sorted_particle_id; }
+		thrust::device_vector<int>& cellID 	() { return _cell_index; }
+		thrust::device_vector<int>& cellCount () { return _cell_count; }
+		thrust::device_vector<int>& cellOffset () { return _cell_offset; }
+
+		float4* bindPositions() { return _positions.bindCUDA(); }
 		void unbindPositions() { _positions.unbindCUDA(); }
-		UniformBuffer<core::vec4>& getUniformBuffer() { return _positions; }
+
+		UniformBuffer<float4>& getUniformBuffer() { return _positions; }
 
 		void uploadData(device_data& data) { _device_data.upload(&data); }
 		device_data& getUploadedData() { return *((device_data*)_device_data); }
-
-		const core::vec3i& getDimensions() const { return _dimensions; }
 
 		CUDA_DEVICE_FUNCTION static void wallCollision( device_data&, int i );
 		CUDA_DEVICE_FUNCTION static void reassignParticle( device_data&, int i );
 
 		//smoothing kernel
-		CUDA_DEVICE_FUNCTION static double WPoly6 ( double r );
-		CUDA_DEVICE_FUNCTION static core::vec3 gradientWPoly6 ( core::vec3& r, double d );
-		CUDA_DEVICE_FUNCTION static double laplacianWPoly6 ( double r );
-		CUDA_DEVICE_FUNCTION static core::vec3 gradientWSpiky ( core::vec3& d, double r );
-		CUDA_DEVICE_FUNCTION static double laplacianWViscosity ( double r );
+		CUDA_DEVICE_FUNCTION static float WPoly6 ( float r );
+		CUDA_DEVICE_FUNCTION static float4 gradientWPoly6 ( float4& r, float d );
+		CUDA_DEVICE_FUNCTION static float laplacianWPoly6 ( float r );
+		CUDA_DEVICE_FUNCTION static float4 gradientWSpiky ( float4& d, float r );
+		CUDA_DEVICE_FUNCTION static float laplacianWViscosity ( float r );
 
 		CUDA_DEVICE_FUNCTION static void integrate( device_data&, int i, double dt );
 		CUDA_DEVICE_FUNCTION static void calculatePressure ( device_data&, int i );
@@ -92,22 +91,32 @@ namespace Fluids {
 
 		CUDABuffer<device_data> _device_data;
 
-		core::vec3i _dimensions;
-		
-		CUDABuffer<cell> _cells;
-
-		CUDABuffer<particle> _particles;
-		CUDABuffer<core::vec3> _color_field;
-		UniformBuffer<core::vec4> _positions;
-		
+		int4 _dimensions;
 		int _particle_count;
+
+		//cell data
+		thrust::device_vector<int> _cell_count;
+		thrust::device_vector<int> _cell_offset;
+		thrust::device_vector<int> _sorted_cell_id;
+
+		//particle data
+		thrust::device_vector<int> _cell_index;
+		thrust::device_vector<float4> _velocity;
+		thrust::device_vector<float4> _force;
+		thrust::device_vector<float> _density;
+		thrust::device_vector<float> _pressure;
+		thrust::device_vector<int> _sorted_particle_id;
+
+		thrust::device_vector<float4> _color_field;
+
+		UniformBuffer<float4> _positions;
 
 	};
 
 	__global__ void calculatePressure(grid::device_data&);
 	__global__ void calculateForces(grid::device_data&);
 	__global__ void integrate(grid::device_data&, double dt);
-	void runCUDASimulation(grid&, MarchingCubes&, double dt, unsigned int frame);
+	void runCUDASimulation(bool visualize, grid&, MarchingCubes&, double dt, unsigned int frame);
 }
 
 #endif

@@ -24,8 +24,8 @@ namespace Fluids {
 			MarchingCubes::computeIsoSurface(data, i);
 	}
 	void runMarchingCubes(grid::device_data& g, MarchingCubes& mc) {
-		core::vec3* v = (core::vec3*)mc.bindVertices();
-		core::vec3* n = (core::vec3*)mc.bindNormals();
+		float3* v = (float3*)mc.bindVertices();
+		float3* n = (float3*)mc.bindNormals();
 		int* indices = mc.bindIndices();
 		checkCUDAReturn( cudaDeviceSynchronize() );
 
@@ -72,7 +72,7 @@ namespace Fluids {
 		mc.synchronizeWithDevice();
 	}
 
-	MarchingCubes::device_data::device_data(MarchingCubes& mc, core::vec3* v, core::vec3* n, int* indbuf) :
+	MarchingCubes::device_data::device_data(MarchingCubes& mc, float3* v, float3* n, int* indbuf) :
 		face_count(0),
 		volume(mc._volume),
 		point_volume(mc._point_volume),
@@ -81,9 +81,9 @@ namespace Fluids {
 		depth(mc._depth),
 		length_x_width(length * width),
 		cube_size(mc._cube_dimensions),
-		cube_values(mc._cube_values),
-		neighbor_values(mc._neighbor_values),
-		normal_values(mc._normal_values),
+		cube_values(thrust::raw_pointer_cast(mc._cube_values.data())),
+		neighbor_values(thrust::raw_pointer_cast(mc._neighbor_values.data())),
+		normal_values(thrust::raw_pointer_cast(mc._normal_values.data())),
 		vertex_buffer(v),
 		normal_buffer(n),
 		index_buffer(indbuf) { ; }
@@ -99,9 +99,9 @@ namespace Fluids {
 		_normal_values(_point_volume),
 		_neighbor_values(_volume/32 + 1) {
 
-		_cube_dimensions = core::vec3((float)dim.x / L, 
-									  (float)dim.y / W,
-									  (float)dim.z / D);
+		_cube_dimensions = make_float3( (float)dim.x / L, 
+										(float)dim.y / W,
+										(float)dim.z / D );
 
 		{
 			glGenBuffers(1, &_vertex_buffer);
@@ -130,9 +130,9 @@ namespace Fluids {
 		}
 
 		{
-			int indices_x = (W+1) * (D+1) * 4;
-			int indices_y = (L+1) * (D+1) * 4;
-			int indices_z = (L+1) * (W+1) * 4;
+			int indices_x = (W+1) * (D+1) * 16;
+			int indices_y = (L+1) * (D+1) * 16;
+			int indices_z = (L+1) * (W+1) * 16;
 
 			glGenBuffers(1, &_index_buffer);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _index_buffer);
@@ -203,24 +203,58 @@ namespace Fluids {
 	}
 
 	CUDA_DEVICE_FUNCTION void MarchingCubes::computeVoxelData(grid::device_data& g, device_data& data, int index) {
-		int x, y, z;
-		getXYZFromIndex(index, data.length + 1, data.width + 1, &x, &y, &z);
+		int4 cell;
+		getXYZFromIndex(index, data.length + 1, data.width + 1, &cell.x, &cell.y, &cell.z);
 
-		core::vec3 position(data.cube_size.x*x, data.cube_size.y*y, data.cube_size.z*z);
+		float4 position = make_float4(data.cube_size.x*cell.x, data.cube_size.y*cell.y, data.cube_size.z*cell.z, 0.0f);
 		//float density = 0.0f;
 		
+		//iterate over all neighbors
 		int counted = 0;
-		data.normal_values[index] = core::vec3(0,0,0);
+		/*for (int x = -1; x <= 1; x++) {
+	       	if (cell.x + x < 0) continue;
+	        else if (cell.x + x >= g.dimensions.x) break;
+	        
+	       	for (int y = -1; y <= 1; y++) {
+	       		if (cell.y + y < 0) continue;
+	        	else if (cell.y + y >= g.dimensions.y ) break;
+	          
+		       	for (int z = -1; z <= 1; z++) {
+		       		if (cell.z + z < 0) continue;
+		        	else if (cell.z + z >= g.dimensions.z ) break;
+
+		        	int neighbor_id = 0;
+		        	getIndexFromXYZ(cell.x+x, cell.y+y, cell.z+z, g.dimensions.x, g.dimensions.y, &neighbor_id);
+		        	int offset = g.cell_offset[neighbor_id];
+		        	int count = g.cell_count[neighbor_id];
+
+		        	//printf("source %d to index %d : offset = %d, count = %d\r\n", id, neighbor_id, offset, count);
+
+		        	for (int k = 0; k < count; k++) {
+		        		int j = g.sorted_particle_id[k + offset];
+						float4 dist = position - g.positions[j];
+						if ( std::sqrt(cuDot4(dist, dist)) <= CONST_H ) {
+							atomicOr(&data.cube_values[index/32], (1<<(index%32)));
+							data.normal_values[index] = data.normal_values[index] + g.color_field[j];
+							counted ++ ;
+							//data.index_buffer[atomicAdd(&data.face_count, 1)] = index;
+						}
+		        	}
+				}
+			}
+		}*/
+		
+		data.normal_values[index] = make_float3(0,0,0);
 		for (int i=0;i<g.particle_count;i++) {
-			if ( core::Distance(position, g.positions[i].xyz()) <= CONST_H ) {
+			float4 dist = position - g.positions[i];
+			if ( std::sqrt(cuDot4(dist, dist)) <= CONST_H ) {
 				atomicOr(&data.cube_values[index/32], (1<<(index%32)));
-				data.normal_values[index] += g.color_field[i];
+				data.normal_values[index] = data.normal_values[index] + g.color_field[i];
 				counted ++ ;
-				//data.index_buffer[atomicAdd(&data.face_count, 1)] = index;
 			}
 		}
 		if ( counted != 0 )
-			data.normal_values[index] /= counted;
+			data.normal_values[index] = data.normal_values[index] / (float)counted;
 	}
 
 	CUDA_DEVICE_FUNCTION inline bool check_node(Uint* data, int index, int offset) {
@@ -233,9 +267,9 @@ namespace Fluids {
 
 		getXYZFromIndex(index, data.length, data.width, &x, &y, &z);
 
-		data.vertex_buffer[index] = core::vec3( data.cube_size.x * x / 2.0f + data.cube_size.x / 4.0f,
+		data.vertex_buffer[index] = make_float3(data.cube_size.x * x / 2.0f + data.cube_size.x / 4.0f,
 												data.cube_size.y * y / 2.0f + data.cube_size.y / 4.0f,
-												data.cube_size.z * z / 2.0f + data.cube_size.z / 4.0f );
+												data.cube_size.z * z / 2.0f + data.cube_size.z / 4.0f);
 
 		int i[8];
 
@@ -276,14 +310,10 @@ namespace Fluids {
 		float total = left + right + front + back + up + down;
 
 		if ( total != 0 ) {
-			core::vec3 highest( data.cube_size.x * (x+1) / 2.0f,
-								data.cube_size.y * (y+1) / 2.0f,
-								data.cube_size.z * (z+1) / 2.0f );
-			core::vec3 lowest ( data.cube_size.x * x / 2.0f,
-								data.cube_size.y * y / 2.0f,
-								data.cube_size.z * z / 2.0f );
+			float3 highest = make_float3(data.cube_size.x * (x+1) / 2.0f,data.cube_size.y * (y+1) / 2.0f,data.cube_size.z * (z+1) / 2.0f);
+			float3 lowest = make_float3(data.cube_size.x * x / 2.0f,data.cube_size.y * y / 2.0f,data.cube_size.z * z / 2.0f);
 
-			for ( int k=0;k<30;k++ ) {
+			for ( int k=0;k<10;k++ ) {
 				data.vertex_buffer[index] = ( left * data.vertex_buffer[i[0]] +
 											  right * data.vertex_buffer[i[1]] +
 											  front * data.vertex_buffer[i[2]] +

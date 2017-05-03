@@ -6,6 +6,8 @@
 #include "core/vector.hpp"
 #include "grid.hpp"
 
+#include <thrust/device_vector.h>
+
 namespace Fluids {
 
 	class MarchingCubes {
@@ -18,16 +20,16 @@ namespace Fluids {
 				width,
 				depth,
 				length_x_width;
-			core::vec3 cube_size;
+			float3 cube_size;
 			Uint* cube_values;
 			Uint* neighbor_values;
-			core::vec3* normal_values;
-			core::vec3* vertex_buffer;
-			core::vec3* normal_buffer;
+			float3* normal_values;
+			float3* vertex_buffer;
+			float3* normal_buffer;
 			int* index_buffer;
 
 			device_data() { ; }
-			device_data(MarchingCubes&, core::vec3*, core::vec3*, int*);
+			device_data(MarchingCubes&, float3*, float3*, int*);
 		};
 
 		MarchingCubes(int L, int W, int D, const core::vec3i&);
@@ -68,11 +70,11 @@ namespace Fluids {
 			_volume,
 			_point_volume;
 
-		core::vec3 _cube_dimensions;
+		float3 _cube_dimensions;
 
-		CUDABuffer<Uint> _cube_values; // each byte is 8 boolean values, fetch: array[i/8] & (1<<(i%8))
-		CUDABuffer<core::vec3> _normal_values;
-		CUDABuffer<Uint> _neighbor_values; // 
+		thrust::device_vector<Uint> _cube_values; // each byte is 8 boolean values, fetch: array[i/8] & (1<<(i%8))
+		thrust::device_vector<float3> _normal_values;
+		thrust::device_vector<Uint> _neighbor_values; // 
 
 		GLuint _vertex_buffer;
 		GLuint _normal_buffer;

@@ -14,9 +14,9 @@
 
 using namespace Fluids;
 
-#define CUBE_DIMENSIONS 30
-#define GRID_DIMENSIONS 10
-#define PARTICLE_COUNT 300
+#define CUBE_DIMENSIONS 10
+#define GRID_DIMENSIONS 40
+#define PARTICLE_COUNT 30000
 
 void createBoxShader(Shader& shad);
 void createSurfaceShader(Shader& shad);
@@ -245,6 +245,9 @@ void run(const std::vector<std::string>& args) {
 	unsigned int _frame_count = 1;
 	bool _draw_particles = true;
 
+	double frame_time = 0.0;
+	double current_frame = frame_time;
+
 	while (!glfwWindowShouldClose(mainWindow))
 	{
 		if ( GlobalData::spacePressed )
@@ -256,9 +259,12 @@ void run(const std::vector<std::string>& args) {
 	// CUDA Segment
 	//----------------------------------------------------------------------------------------------
 		
-		runCUDASimulation(sim, cubes, min(0.016, _delta_time), _frame_count);
+		if ( current_frame > frame_time) {
+			current_frame -= frame_time;
+			runCUDASimulation(!_draw_particles, sim, cubes, min(0.016, _delta_time), _frame_count);
+		}
 
-		std::cerr << "face count " << cubes.getFaceCount() << std::endl;
+		//std::cerr << "face count " << cubes.getFaceCount() << std::endl;
 
 	//----------------------------------------------------------------------------------------------
 	// OpenGL Segment
@@ -374,6 +380,8 @@ void run(const std::vector<std::string>& args) {
 			_delta_time = ct - _current_time;
 			_current_time = ct;
 			_fps = 0.9 * _fps + 0.1 * (1.0 / _delta_time);
+
+			current_frame += _delta_time;
 
 			//Sleep(1000);
 		}
