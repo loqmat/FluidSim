@@ -10,9 +10,9 @@
 #define GRAVITATIONAL_ACCELERATION 9.80665 //m/s^2
 #define CONST_H 1.2 //between 0 and 0.5 //.0457
 #define CONST_MASS 1.0
-#define GAS_CONSTANT 461.5
+#define GAS_CONSTANT 46.15
 #define CONST_REST_DENSITY .99829 //kg/m^3
-#define CONST_VISCOSITY 3.5
+#define CONST_VISCOSITY 1.5
 #define CONST_SURFACE_TENSION_FORCE_THRESHOLD 7.065
 #define CONST_SURFACE_TENSION 0.0728
 #define CONST_SURFACE_PARTICLE_THRESHOLD 1.0
@@ -49,6 +49,7 @@ namespace Fluids {
 			cell* cells;
 			particle* particles;
 			core::vec4* positions;
+			core::vec3* color_field;
 			int particle_count;
 
 			device_data(grid& g, core::vec4* pos) :
@@ -56,10 +57,11 @@ namespace Fluids {
 				cells(g._cells),
 				particles(g._particles),
 				positions(pos),
-				particle_count(g._particle_count) { ; }
+				particle_count(g._particle_count),
+				color_field(g._color_field) { ; }
 		};
 
-		grid(int length, int width, int depth, float filled);
+		grid(int length, int width, int depth, int count);
 		//particle* addParticle(vec4 position);
 
 		int getParticleCount () { return _particle_count; }
@@ -95,6 +97,7 @@ namespace Fluids {
 		CUDABuffer<cell> _cells;
 
 		CUDABuffer<particle> _particles;
+		CUDABuffer<core::vec3> _color_field;
 		UniformBuffer<core::vec4> _positions;
 		
 		int _particle_count;

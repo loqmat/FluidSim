@@ -14,7 +14,12 @@
 
 using namespace Fluids;
 
+#define CUBE_DIMENSIONS 30
+#define GRID_DIMENSIONS 10
+#define PARTICLE_COUNT 300
+
 void createBoxShader(Shader& shad);
+void createSurfaceShader(Shader& shad);
 void createFlatShader(Shader& shad);
 
 struct GlobalData {
@@ -171,12 +176,12 @@ void run(const std::vector<std::string>& args) {
 // MAKE A FANCY, FANCY PARTICLE GRID!!!
 //--------------------------------------------------------------------------------------------------
 
-	int cubes_dimension = 1;
-	float grid_dimension = 3;
+	int cubes_dimension = CUBE_DIMENSIONS;
+	float grid_dimension = GRID_DIMENSIONS;
 
 	MarchingCubes cubes(cubes_dimension, cubes_dimension, cubes_dimension,
 						core::vec3i(grid_dimension,grid_dimension,grid_dimension));
-	grid sim(grid_dimension, grid_dimension, grid_dimension, 1.0);
+	grid sim(grid_dimension, grid_dimension, grid_dimension, PARTICLE_COUNT);
 
 //--------------------------------------------------------------------------------------------------
 // OpenGL Shaders and Uniforms
@@ -187,17 +192,32 @@ void run(const std::vector<std::string>& args) {
 	main_camera.rise = -1.0f;
 	main_camera.root_position = core::vec3(grid_dimension/4,grid_dimension/4,grid_dimension/4);
 
+//------------------------------------------
+
 	Shader shader_box;
 	GLuint shader_box_proj_view = 0;
 	core::mat4 scaling_matrix = core::create4(
-		grid_dimension, 0,                  0,                  0,
-		0,                  grid_dimension, 0,                  0,
-		0,                  0,                  grid_dimension, 0,
-		0,                  0,                  0,              1 );
+		grid_dimension / 2, 0,                  0,                  0,
+		0,                  grid_dimension / 2, 0,                  0,
+		0,                  0,                  grid_dimension / 2, 0,
+		0,                  0,                  0,                  1 );
 
 	createBoxShader(shader_box);
 	glUseProgram(shader_box);
 	shader_box_proj_view = glGetUniformLocation(shader_box, "u_projection_view");
+
+//------------------------------------------
+
+	Shader shader_surface;
+	GLuint surf_proj_view;
+	GLuint surf_light_direc;
+
+	createSurfaceShader(shader_surface);
+	glUseProgram(shader_box);
+	surf_proj_view = glGetUniformLocation(shader_surface, "u_projection_view");
+	surf_light_direc = glGetUniformLocation(shader_surface, "u_light_direction");
+
+//------------------------------------------
 
 	Shader shader_flat;
 	GLuint shader_proj_view = 0;
@@ -210,6 +230,8 @@ void run(const std::vector<std::string>& args) {
 
 	GLuint modelview_index = glGetUniformBlockIndex(shader_flat, "ModelView");   
 	glUniformBlockBinding(shader_flat, modelview_index, 0);
+
+//------------------------------------------
 
 	if ( glGetError() != GL_NO_ERROR ) 
 		throw "Got OpenGL Error during Setup!";
@@ -234,7 +256,7 @@ void run(const std::vector<std::string>& args) {
 	// CUDA Segment
 	//----------------------------------------------------------------------------------------------
 		
-		runCUDASimulation(sim, cubes, 0.1f * _delta_time, _frame_count);
+		runCUDASimulation(sim, cubes, min(0.016, _delta_time), _frame_count);
 
 		std::cerr << "face count " << cubes.getFaceCount() << std::endl;
 
@@ -270,7 +292,7 @@ void run(const std::vector<std::string>& args) {
 			{
 				core::mat4 data;
 				main_camera.fillMatrix((float)width/height, data);
-				//data = data * scaling_matrix;
+				data = data * scaling_matrix;
 				glUniformMatrix4fv(shader_box_proj_view, 1, false, (float*)&data);
 			}
 
@@ -322,18 +344,17 @@ void run(const std::vector<std::string>& args) {
 
 			} else {
 
-				glUseProgram(shader_box);
+				glUseProgram(shader_surface);
 				{
 					core::mat4 data;
 					main_camera.fillMatrix((float)width/height, data);
-					glUniformMatrix4fv(shader_box_proj_view, 1, false, (float*)&data);
+					glUniformMatrix4fv(surf_proj_view, 1, false, (float*)&data);
 				}
 
-				cubes.bindGL();
-				glEnableVertexAttribArray(0);
-				glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+				glUniform3f(surf_light_direc, 0,1,0);
 
-				glDrawElements(GL_POINTS, cubes.getFaceCount(), GL_UNSIGNED_INT, 0);
+				cubes.bindGL();
+				glDrawElements(GL_TRIANGLES, cubes.getFaceCount(), GL_UNSIGNED_INT, 0);
 
 			}
 
@@ -379,16 +400,45 @@ void createBoxShader(Shader& shad) {
 		"#version 330\r\n"
 		"uniform mat4 u_projection_view;"
 		"in vec3 in_position;"
+		"out vec3 v_position;"
 		"void main() {"
 		"   gl_Position = u_projection_view * vec4(in_position, 1);"
 		"	gl_PointSize = 8.0;"
+		"	v_position = in_position;"
 		"}";
 		
 	shad.fragment =
 		"#version 330\r\n"
+		"in vec3 v_position;"
 		"out vec4 out_color;"
 		"void main() {"
-		"	out_color = vec4(1,1,1,1);"
+		"	out_color = vec4(v_position,1);"
+		"}";
+
+	shad.link();
+}
+void createSurfaceShader(Shader& shad) {
+	shad.vertex =
+		"#version 330\r\n"
+		"uniform mat4 u_projection_view;"
+		"in vec3 in_position;"
+		"in vec3 in_normal;"
+		"out vec3 v_normal;"
+		"void main() {"
+		"   gl_Position = u_projection_view * vec4(in_position, 1);"
+		"   gl_PointSize = 4.0;"
+		"	v_normal = in_normal;"
+		"}";
+		
+	shad.fragment =
+		"#version 330\r\n"
+		"uniform vec3 u_light_direction;"
+		"in vec3 v_normal;"
+		"out vec4 out_color;"
+		"void main() {"
+		"	float lighting = 0.8 * clamp(dot(u_light_direction, v_normal) + 0.2, 0, 1) + 0.2;"
+		"	out_color = vec4(vec3(0.25,0.640625,0.87109375)*lighting,1);"
+		//"	out_color = vec4(1,1,1,1);"
 		"}";
 
 	shad.link();

@@ -10,6 +10,7 @@
 #include "device_launch_parameters.h"
 
 typedef unsigned char byte;
+typedef unsigned int Uint;
 
 #define CUDA_GLOBAL_FUNCTION __global__
 #define CUDA_DEVICE_FUNCTION __device__

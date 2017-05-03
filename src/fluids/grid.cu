@@ -20,7 +20,9 @@ namespace Fluids {
 		curand_init(0, 0, 0, &state);
 
 		if ( i < data.particle_count ) {
-			data.positions[i] = core::vec4(x + curand_normal(&state),y + curand_normal(&state),z + curand_normal(&state), 1.0);
+			data.positions[i] = core::vec4( x + curand_normal(&state),
+											y + curand_normal(&state),
+											z + curand_normal(&state), 1.0);
 			data.particles[i] = particle();
 		}
 	}
@@ -103,16 +105,17 @@ namespace Fluids {
 	}
 
 
-	grid::grid(int length, int width, int depth, float filled) :
+	grid::grid(int length, int width, int depth, int count) :
 		_device_data(1),
 		_dimensions(length, width, depth),
 		_cells(length*width*depth), 
 		_particles(length*width*depth),
+		_color_field(length*width*depth),
 		_positions(length*width*depth) {
 
 		int volume = length*width*depth;
 
-		_particle_count = filled * volume;
+		_particle_count = count;
 
 		glBindBuffer(GL_COPY_WRITE_BUFFER, _positions.handleGL());
 		glBufferSubData(GL_COPY_WRITE_BUFFER, 0, sizeof(core::vec4) * volume, NULL);
@@ -281,8 +284,8 @@ namespace Fluids {
 		core::vec3 fViscosity;
 		core::vec3 fSurface;
 
-		core::vec3 smoothedColorFieldGradient;
 		double smoothedColorFieldLaplacian = 0.0f;
+		data.color_field[i] = core::vec3(0,0,0);
 
 		for ( int j=0;j<data.particle_count;j++ ) {
 			particle& neighbor = data.particles[ j ];
@@ -294,7 +297,7 @@ namespace Fluids {
 
 				if ( r2 > 0.0 ) {
 					core::vec3 gradient = gradientWPoly6(d,r2);
-					smoothedColorFieldGradient += CONST_MASS * gradient / neighbor.getDensity();
+					data.color_field[i] += CONST_MASS * gradient / neighbor.getDensity();
 					fPressure += (p.getPressure() + neighbor.getPressure())/pow(neighbor.getDensity(),2) * gradient;
 				}
 
@@ -308,9 +311,9 @@ namespace Fluids {
 		fPressure *= -CONST_MASS * p.getDensity();
 		fViscosity *= CONST_VISCOSITY * CONST_MASS;
 
-		float smoothedColorFieldGradientLength = Length(smoothedColorFieldGradient);
-		if ( smoothedColorFieldGradientLength > CONST_SURFACE_TENSION_FORCE_THRESHOLD )
-			fSurface = -CONST_SURFACE_TENSION * smoothedColorFieldLaplacian * (smoothedColorFieldGradient / smoothedColorFieldGradientLength);
+		float cf_len = Length(data.color_field[i]);
+		if ( cf_len > CONST_SURFACE_TENSION_FORCE_THRESHOLD )
+			fSurface = -CONST_SURFACE_TENSION * smoothedColorFieldLaplacian * (data.color_field[i] / cf_len);
 
 		p.setForce(fPressure + fSurface + fViscosity + fGravity + fVortex);
 	}

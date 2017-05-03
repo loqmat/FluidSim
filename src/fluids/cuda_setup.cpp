@@ -14,6 +14,8 @@ namespace Fluids {
 		std::cout << "Device name: " << properties.name << std::endl;
 		std::cout << "CUDA Capability version: " << properties.major << "." <<  properties.minor << std::endl;
 		std::cout << "CUDA Driver / Runtime Version: " << driverVersion << "/" << runtimeVersion << ", CUDA_VERSION: " << CUDA_VERSION << std::endl;
+		std::cout << "Max Global Memory: " << properties.totalGlobalMem << std::endl;
+		std::cout << "Max Threads Per Block: " << properties.maxThreadsPerBlock << std::endl;
 
 		if (!properties.unifiedAddressing)
 			throw "Unified addressing not available.";
