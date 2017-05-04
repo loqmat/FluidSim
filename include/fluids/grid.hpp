@@ -22,6 +22,13 @@ namespace Fluids {
 	class grid {
 	public:
 
+		int perf_count;
+		float perf_sort_time;
+		float perf_calc_pressure;
+		float perf_calc_forces;
+		float perf_integrate;
+		float perf_visualize;
+
 		class device_data {
 		public:
 			int4 dimensions;

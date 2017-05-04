@@ -14,9 +14,9 @@
 
 using namespace Fluids;
 
-#define CUBE_DIMENSIONS 10
-#define GRID_DIMENSIONS 40
-#define PARTICLE_COUNT 30000
+int global_cube_dimensions;
+int global_grid_dimensions;
+int global_particle_count;
 
 void createBoxShader(Shader& shad);
 void createSurfaceShader(Shader& shad);
@@ -94,6 +94,17 @@ void keyboardCallback(GLFWwindow* window, int key, int scancode, int action, int
 
 void run(const std::vector<std::string>& args) {
 //--------------------------------------------------------------------------------------------------
+// Get command line arguments
+//--------------------------------------------------------------------------------------------------
+
+	std::cerr << args[1] << " cube size" << std::endl;
+	global_cube_dimensions = atoi(args[1].c_str());
+	std::cerr << args[2] << " cube size" << std::endl;
+	global_grid_dimensions = atoi(args[2].c_str());
+	std::cerr << args[3] << " particle count" << std::endl;
+	global_particle_count = atoi(args[3].c_str());
+
+//--------------------------------------------------------------------------------------------------
 // Initialize Components
 //--------------------------------------------------------------------------------------------------
 	InitGLFW glfw;
@@ -146,7 +157,7 @@ void run(const std::vector<std::string>& args) {
 	GLuint array_buffer;
 	GLuint index_buffer;
 
-	generateSphere( draw_vertex_count, draw_face_count, array_buffer, index_buffer, 0.5f, 4 );
+	generateSphere( draw_vertex_count, draw_face_count, array_buffer, index_buffer, 0.5f, 6 );
 
 	GLuint draw_cube_buffer;
 	glGenBuffers(1,&draw_cube_buffer);
@@ -176,12 +187,12 @@ void run(const std::vector<std::string>& args) {
 // MAKE A FANCY, FANCY PARTICLE GRID!!!
 //--------------------------------------------------------------------------------------------------
 
-	int cubes_dimension = CUBE_DIMENSIONS;
-	float grid_dimension = GRID_DIMENSIONS;
+	int cubes_dimension = global_cube_dimensions;
+	float grid_dimension = global_grid_dimensions;
 
 	MarchingCubes cubes(cubes_dimension, cubes_dimension, cubes_dimension,
 						core::vec3i(grid_dimension,grid_dimension,grid_dimension));
-	grid sim(grid_dimension, grid_dimension, grid_dimension, PARTICLE_COUNT);
+	grid sim(grid_dimension, grid_dimension, grid_dimension, global_particle_count);
 
 //--------------------------------------------------------------------------------------------------
 // OpenGL Shaders and Uniforms
@@ -289,7 +300,7 @@ void run(const std::vector<std::string>& args) {
 				main_camera.arm_length = std::max(2.0f, main_camera.arm_length * (float)std::pow(0.9f, GlobalData::yScroll));
 
 			glViewport(0, 0, width, height);
-			glClearColor(0,0,0,1);
+			glClearColor(1,1,1,1);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 			// --- DRAW BOX ---------------------------------------------------

@@ -67,6 +67,15 @@ namespace Fluids {
 	}
 
 	void runCUDASimulation(bool visualize, grid& sim, MarchingCubes& mc, double dt, unsigned int frame) {
+		std::cerr << "--- FRAME " << frame << " ---------------------------------------------" << std::endl;
+
+		float millis = 0.0f;
+
+		cudaEvent_t start, stop;
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+
+		cudaEventRecord(start);
 		int numParticles = sim.getParticleCount();
 
 		thrust::device_vector<int>& cell_offset = sim.cellOffset();
@@ -92,6 +101,12 @@ namespace Fluids {
 		thrust::lower_bound(thrust::device, sorted_cell_id.begin(), sorted_cell_id.begin() + vol, search_begin, search_begin + vol, cell_offset.begin());
 		thrust::upper_bound(thrust::device, sorted_cell_id.begin(), sorted_cell_id.begin() + vol, search_begin, search_begin + vol, cell_end.begin());
 		thrust::transform(thrust::device, cell_end.begin(), cell_end.begin() + vol, cell_offset.begin(), cell_count.begin(), thrust::minus<int>());
+		cudaEventRecord(stop);
+
+		cudaEventSynchronize(stop);
+		cudaEventElapsedTime(&millis, start, stop);
+		sim.perf_sort_time = (sim.perf_sort_time * sim.perf_count + millis) / (sim.perf_count + 1);
+		std::cerr << "cell sorting took " << sim.perf_sort_time << std::endl;
 
 		// debug print
 		/*int* a = new int[vol];
@@ -130,37 +145,72 @@ namespace Fluids {
 		int block_count = data.particle_count/THREAD_COUNT + ((data.particle_count%THREAD_COUNT > 0)?1:0);
 		int thread_count = std::min(data.particle_count, THREAD_COUNT);
 
-		std::cerr << "--- FRAME " << frame << " ---------------------------------------------" << std::endl;
-
 		//std::cerr << "BLOCK COUNT " << block_count << std::endl;
 		//std::cerr << "THREAD COUNT " << thread_count << std::endl;
 		//std::cerr << "PARTICLE COUNT " << data.particle_count << std::endl;
 
+		cudaEventRecord(start);
 		calculatePressure<<<block_count,thread_count>>>( sim.getUploadedData() );
 		checkCUDAResult();
 		checkCUDAReturn( cudaDeviceSynchronize() );
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+		cudaEventElapsedTime(&millis, start, stop);
+		sim.perf_calc_pressure = (sim.perf_calc_pressure * sim.perf_count + millis) / (sim.perf_count + 1);
+		std::cerr << "calculate pressure took " << sim.perf_calc_pressure << std::endl;
 
 		//std::cerr << "FINISHED CALCULATING PRESSURE" << std::endl;
 
+		cudaEventRecord(start);
 		calculateForces<<<block_count,thread_count>>>( sim.getUploadedData() );
 		checkCUDAResult();
 		checkCUDAReturn( cudaDeviceSynchronize() );
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+		cudaEventElapsedTime(&millis, start, stop);
+		sim.perf_calc_forces = (sim.perf_calc_forces * sim.perf_count + millis) / (sim.perf_count + 1);
+		std::cerr << "calculate forces took " << sim.perf_calc_forces << std::endl;
 
 		//std::cerr << "FINISHED CALCULATING FORCES" << std::endl;
 
+		cudaEventRecord(start);
 		integrate<<<block_count,thread_count>>>( sim.getUploadedData(), dt );
 		checkCUDAResult();
 		checkCUDAReturn( cudaDeviceSynchronize() );
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+		cudaEventElapsedTime(&millis, start, stop);
+		sim.perf_integrate = (sim.perf_integrate * sim.perf_count + millis) / (sim.perf_count + 1);
+		std::cerr << "integrate took " << sim.perf_integrate << std::endl;
 
-		if ( visualize )
-			runMarchingCubes(sim.getUploadedData(), mc);
+		//if ( visualize ) {
+		cudaEventRecord(start);
+		runMarchingCubes(sim.getUploadedData(), mc);
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+		cudaEventElapsedTime(&millis, start, stop);
+		sim.perf_visualize = (sim.perf_visualize * sim.perf_count + millis) / (sim.perf_count + 1);
+		std::cerr << "visualization took " << sim.perf_visualize << std::endl;
+		//}
+
 
 		//std::cerr << "FINISHED INTEGRATING POSITIONS" << std::endl;
 
 		sim.unbindPositions();
+
+		cudaEventDestroy(start);
+		cudaEventDestroy(stop);
+
+		++ sim.perf_count;
 	}
 
 	grid::grid(int length, int width, int depth, int count) :
+		perf_count(0),
+		perf_sort_time(0.0f),
+		perf_calc_pressure(0.0f),
+		perf_calc_forces(0.0f),
+		perf_integrate(0.0f),
+		perf_visualize(0.0f),
 		_device_data(1),
 		_dimensions(make_int4(length, width, depth, 0)),
 		_cell_count(length*width*depth),
@@ -289,7 +339,8 @@ namespace Fluids {
 	}
 
 	CUDA_DEVICE_FUNCTION void grid::calculatePressure ( device_data& data, int i ) {
-		data.density[i] = 0.0f;
+		float new_density = 0.0f;
+		float4 local_pos = data.positions[i];
 
 		int id = data.cell_index[i];
 		int4 cell = make_int4(0,0,0,0);
@@ -317,13 +368,14 @@ namespace Fluids {
 
 		        	for (int k = 0; k < count; k++) {
 		        		int j = data.sorted_particle_id[k + offset];
-						float4 d = (data.positions[i] - data.positions[j]);
-						data.density[i] += max(0.0f, WPoly6(cuDot4(d, d))*CONST_MASS);
+						float4 d = (local_pos - data.positions[j]);
+						new_density += max(0.0f, WPoly6(cuDot4(d, d))*CONST_MASS);
 		        	}
 				}
 			}
 		}
-		data.pressure[i] = max(0.0f, GAS_CONSTANT*(data.density[i]-CONST_REST_DENSITY));
+		data.density[i] = new_density;
+		data.pressure[i] = max(0.0f, GAS_CONSTANT*(new_density-CONST_REST_DENSITY));
 
 		/*printf("particle %d , pressure at (%f) and density at (%f)\r\n",
 			i, data.pressure[i], data.density[i]
@@ -339,6 +391,7 @@ namespace Fluids {
 
 	CUDA_DEVICE_FUNCTION void grid::calculateForces ( device_data& data, int i ) {
 		float4 dimensions 	= make_float4(data.dimensions.x, data.dimensions.y, data.dimensions.z, data.dimensions.w);
+		float4 local_pos	= data.positions[i];
 
 		float4 fVortex 		= cuCross4(data.positions[i] - dimensions/2.0f, make_float4(0,0,1,0)) * data.density[i];
 		float4 fGravity 	= make_float4(0.0, 0.0, -GRAVITATIONAL_ACCELERATION * data.density[i], 0.0);
@@ -346,7 +399,10 @@ namespace Fluids {
 		float4 fViscosity 	= make_float4(0.0, 0.0, 0.0, 0.0);
 		float4 fSurface 	= make_float4(0.0, 0.0, 0.0, 0.0);
 
-		data.color_field[i] = make_float4(0.0, 0.0, 0.0, 0.0);
+		float4 local_cf		= make_float4(0.0, 0.0, 0.0, 0.0);
+		float4 local_vel	= data.velocity[i];
+		float local_pres	= data.pressure[i];
+
 		float smoothedColorFieldLaplacian = 0.0f;
 
 		int id = data.cell_index[i];
@@ -374,20 +430,20 @@ namespace Fluids {
 
 		        	for ( int k=0;k<count;k++ ) {
 		        		int j = data.sorted_particle_id[k + offset];
-			        	float4 d = data.positions[i] - data.positions[j];
+			        	float4 d = local_pos - data.positions[j];
 						float r2 = cuDot4(d, d);
 
 						if ( r2 <= CONST_H*CONST_H ) {
 
 							if ( r2 > 0.0 ) {
 								float4 gradient = gradientWPoly6(d,r2);
-								data.color_field[i] = data.color_field[i] + CONST_MASS * gradient / data.density[j];
-								fPressure = fPressure + (data.pressure[i] + data.pressure[j])/(data.density[j] * data.density[j]) * gradient;
+								local_cf = local_cf + CONST_MASS * gradient / data.density[j];
+								fPressure = fPressure + (local_pres + data.pressure[j])/(data.density[j] * data.density[j]) * gradient;
 							}
 
 							float r = std::sqrt(r2);
 				    		smoothedColorFieldLaplacian += CONST_MASS * laplacianWPoly6(r) / data.density[j];
-							fViscosity = fViscosity + (data.velocity[j] - data.velocity[i]) * laplacianWViscosity(r) / data.density[j];
+							fViscosity = fViscosity + (data.velocity[j] -local_vel) * laplacianWViscosity(r) / data.density[j];
 							
 						}
 					}
@@ -417,10 +473,11 @@ namespace Fluids {
 		fPressure = fPressure * -CONST_MASS * data.density[i];
 		fViscosity = fViscosity * CONST_VISCOSITY * CONST_MASS;
 
-		float cf_len = std::sqrt (cuDot4(data.color_field[i], data.color_field[i]));
+		float cf_len = std::sqrt (cuDot4(local_cf, local_cf));
 		if ( cf_len > CONST_SURFACE_TENSION_FORCE_THRESHOLD )
-			fSurface = -CONST_SURFACE_TENSION * smoothedColorFieldLaplacian * (data.color_field[i] / cf_len);
+			fSurface = -CONST_SURFACE_TENSION * smoothedColorFieldLaplacian * (local_cf / cf_len);
 
+		data.color_field[i] = local_cf;
 		data.force[i] = fPressure + fSurface + fViscosity + fGravity + fVortex;
 
 		/*printf("particle %d, force (%f %f %f)\r\n",
